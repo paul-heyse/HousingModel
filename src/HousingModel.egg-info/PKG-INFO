@@ -1,0 +1,73 @@
+Metadata-Version: 2.4
+Name: HousingModel
+Version: 0.1.0
+Summary: HousingModel
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+Requires-Dist: pydantic<3,>=2.6
+Requires-Dist: pydantic-settings<3,>=2.2
+Requires-Dist: SQLAlchemy<3,>=2.0
+Requires-Dist: alembic<2,>=1.13
+Requires-Dist: geoalchemy2<1,>=0.14
+Requires-Dist: pyarrow<16,>=15.0
+Requires-Dist: duckdb<1,>=0.10
+Requires-Dist: great-expectations<1,>=0.18
+Requires-Dist: structlog<25,>=24.1
+Requires-Dist: prometheus-client<1,>=0.19
+
+# HousingModel (replace via scripts/init.sh)
+
+Baseline template for Python projects in Cursor on Ubuntu.
+
+## Quick start (per project)
+1. Run `scripts/init.sh <package_name> [python_version] "Description"`.
+2. Open folder in Cursor (`cursor .`).
+3. Ensure interpreter shows `.venv/bin/python`.
+4. Run target tasks: **pytest**, **lint**, **format**.
+
+See `.cursor/rules`, `.vscode/*`, and `environment.yml` for configuration details.
+
+## Runtime configuration & feature flags
+
+The core application settings live in `aker_core.config.Settings`, which follows 12-factor
+precedence (`env` > `.env` > defaults) using `pydantic-settings`. Instantiate `Settings()` to
+access typed configuration for databases, external APIs, and feature flags. Secrets remain out of
+snapshots when you call `settings.snapshot()`.
+
+To toggle behaviour without code changes, use `aker_core.flags.is_enabled("FLAG_NAME")`. Flag
+values resolve from the same Settings instance and are surfaced via
+`aker_core.config.build_run_config()` so pipelines can persist them into `runs.config_json`.
+
+## Run metadata & lineage
+
+Wrap every pipeline in `with aker_core.run.RunContext(session_factory) as run:` to capture git SHA,
+configuration hash, deterministic seeds, and start/end timestamps. Use `run.log_lineage(...)` to
+record external dataset usage and `run.set_output_hash(...)` to persist golden hashes that make
+reruns auditable. The provided SQLAlchemy session (`run.session`) should be used to write outputs so
+each record can carry `run_id`.
+
+## Plugin registry & ports
+
+Core workflows depend on the abstract ports under `aker_core.ports` (`MarketScorer`,
+`AssetEvaluator`, `DealArchetypeModel`, `RiskEngine`). Register concrete adapters with
+`aker_core.plugins.register("adapter_name", factory)` or expose them via the
+`aker_core.plugins` entry-point group so `aker_core.plugins.discover()` can auto-load them.
+Tests can hot-swap implementations using `aker_core.plugins.override(...)` without touching
+production wiring.
+
+## Data layer: DSN patterns and dev setup
+
+- Production (PostGIS): set `AKER_POSTGIS_DSN` in environment or `.env`.
+  - Example: `postgresql+psycopg://user:pass@db-host:5432/aker`.
+- Development (SQLite/SpatiaLite optional): use SQLite for quick local runs and CI.
+  - Example: `sqlite+pysqlite:///./local.db`.
+- Geometry fields:
+  - PostgreSQL: true PostGIS geometry columns.
+  - SQLite: fallback TEXT columns (WKT/WKB strings) for tests; enable SpatiaLite in your local environment if needed.
+
+Running migrations locally with SQLite:
+
+```bash
+. .venv/bin/activate
+alembic upgrade head
+```

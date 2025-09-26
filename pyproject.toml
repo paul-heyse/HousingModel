@@ -1,9 +1,30 @@
 [project]
-name = "yourpkg"
+name = "HousingModel"
 version = "0.1.0"
-description = "Replace me in scripts/init.sh"
+description = "HousingModel"
 readme = "README.md"
 requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.6,<3",
+    "pydantic-settings>=2.2,<3",
+    "SQLAlchemy>=2.0,<3",
+    "alembic>=1.13,<2",
+    "geoalchemy2>=0.14,<1",
+    "pyarrow>=15.0,<16",
+    "duckdb>=0.10,<1",
+    "great-expectations>=0.18,<1",
+    "structlog>=24.1,<25",
+    "prometheus-client>=0.19,<1",
+    "requests-cache>=1.2,<2",
+    "tenacity>=8.2,<9",
+    "prefect>=2.20,<3",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.black]
 line-length = 100
