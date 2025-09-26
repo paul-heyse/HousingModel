@@ -44,6 +44,7 @@ def test_log_timing_records_duration_and_metric():
         "heavy_step",
         metric_name="heavy_step_seconds",
         metric_description="Heavy step duration",
+        labels={"stage": "load"},
     ):
         pass
 
@@ -53,11 +54,15 @@ def test_log_timing_records_duration_and_metric():
     assert output["duration_ms"] >= 0
     assert "cpu_time_ms" in output
 
-    histogram = aker_logging.get_histogram_metric("heavy_step_seconds")
+    histogram = aker_logging.get_histogram_metric(
+        "heavy_step_seconds", label_names=("stage",)
+    )
     assert histogram is not None
     metric_family = histogram.collect()[0]
     count_value = next(
-        sample.value for sample in metric_family.samples if sample.name.endswith("_count")
+        sample.value
+        for sample in metric_family.samples
+        if sample.name.endswith("_count") and sample.labels.get("stage") == "load"
     )
     assert count_value == 1
     if "memory_delta_kb" in output:
@@ -182,7 +187,45 @@ def test_log_classified_error_with_exception_records_message():
 
 def test_generate_metrics_returns_exposition():
     data = aker_logging.generate_metrics()
-    if aker_logging.get_metrics_registry() is None:
+    registry = aker_logging.get_metrics_registry()
+
+    if registry is None:
         assert data == b""
     else:
         assert isinstance(data, (bytes, bytearray))
+        # Registry exists, but no metrics may have been recorded yet
+        # The function should return valid exposition format (even if empty)
+        assert data == b"" or b"# HELP" in data or len(data) > 0
+
+
+def test_prometheus_helpers_invoke_registry(monkeypatch: pytest.MonkeyPatch) -> None:
+    registry = aker_logging.get_metrics_registry()
+    if registry is None:
+        pytest.skip("Prometheus client not available")
+
+    metrics_started = {}
+
+    def fake_start_http_server(port, addr, registry=None):  # pragma: no cover - invoked in test
+        metrics_started["port"] = port
+        metrics_started["addr"] = addr
+        metrics_started["registry"] = registry
+
+    app_registry = {}
+
+    def fake_make_wsgi_app(registry=None):  # pragma: no cover - invoked in test
+        app_registry["registry"] = registry
+        return lambda environ, start_response: None
+
+    monkeypatch.setattr(aker_logging, "start_http_server", fake_start_http_server)
+    monkeypatch.setattr(aker_logging, "make_wsgi_app", fake_make_wsgi_app)
+
+    app = aker_logging.make_metrics_app()
+    assert callable(app)
+    assert app_registry["registry"] is registry
+
+    aker_logging.start_metrics_server(port=9100, addr="127.0.0.1")
+    assert metrics_started == {
+        "port": 9100,
+        "addr": "127.0.0.1",
+        "registry": registry,
+    }

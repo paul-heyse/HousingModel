@@ -18,6 +18,9 @@ dependencies = [
     "requests-cache>=1.2,<2",
     "tenacity>=8.2,<9",
     "prefect>=2.20,<3",
+    "geopandas>=0.14,<1",
+    "shapely>=2.0,<3",
+    "pyproj>=3.6,<4",
 ]
 
 [tool.setuptools]

@@ -1,0 +1,37 @@
+# Prefect project configuration for HousingModel ETL orchestration
+[project]
+name = "housing-model-etl"
+prefect-version = "2.20.0"
+description = "ETL orchestration for housing market data processing and scoring"
+
+[deployments]
+# Default deployment settings
+default-work-pool = "default-work-pool"
+default-work-queue = "default"
+
+[flows]
+# Flow execution settings
+timeout-seconds = 3600  # 1 hour default timeout
+retry-condition-fn = "prefect.utilities.callables.identity"
+max-retries = 3
+
+[logging]
+level = "INFO"
+format = "json"
+
+[storage]
+# Local storage for development
+basepath = "./flows"
+
+[ui]
+# UI settings for Prefect Cloud/Server
+url = "http://localhost:4200"
+
+[server]
+# Server settings for local development
+host = "0.0.0.0"
+port = 4200
+
+[context]
+# Global context variables available to all flows
+environment = "development"

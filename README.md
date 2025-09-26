@@ -142,6 +142,37 @@ response = fetch("https://api.example.com/data", ttl="30m")
   http_cache/                # SQLite cache for HTTP responses
 ```
 
+## Geospatial Standards & CRS Utilities
+
+The platform enforces consistent coordinate reference systems and validates spatial data integrity:
+
+```python
+from aker_geo.crs import to_ui, to_storage
+from aker_geo.validate import validate_geometry
+
+# Transform for web mapping (EPSG:3857)
+ui_gdf = to_ui(storage_gdf)  # Storage CRS → UI CRS
+
+# Transform for storage (EPSG:4326)
+storage_gdf = to_storage(ui_gdf)  # UI CRS → Storage CRS
+
+# Validate geometry data
+validation_report = validate_geometry(gdf)
+print(f"Valid: {validation_report.valid_count}, Invalid: {validation_report.invalid_count}")
+```
+
+**Features:**
+- **CRS Standards**: EPSG:4326 for storage, EPSG:3857 for UI display
+- **Geometry Validation**: Automatic detection and correction of invalid geometries
+- **PostGIS Integration**: SRID enforcement and spatial data integrity
+- **Coordinate Transformations**: Accurate CRS conversions with metadata preservation
+- **Spatial Operations**: CRS-aware spatial joins, distance calculations, and area computations
+
+**CRS Standards:**
+- **Storage CRS**: EPSG:4326 (WGS84) - Geographic coordinates for data storage
+- **UI CRS**: EPSG:3857 (Web Mercator) - Projected coordinates optimized for web mapping
+- **Validation**: Automatic CRS detection and correction for spatial data integrity
+
 ## ETL Orchestration
 
 The platform uses Prefect for robust ETL pipeline orchestration with automated scheduling and monitoring:
