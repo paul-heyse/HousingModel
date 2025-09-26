@@ -6,6 +6,7 @@ import pandas as pd
 from prefect import flow, task
 
 from aker_core.config import get_settings
+from aker_core.validation import validate_data_quality
 from aker_data.lake import DataLake
 from .base import ETLFlow, etl_task, timed_flow, with_run_context
 
@@ -102,27 +103,16 @@ class MarketScoringFlow(ETLFlow):
 
     @etl_task("validate_scoring_results", "Validate scoring results quality")
     def validate_scoring_results(self, df: pd.DataFrame) -> bool:
-        """Validate scoring results."""
-        # Basic validation checks
-        required_columns = ['name', 'market_score', 'market_tier', 'scoring_model']
-        missing_columns = [col for col in required_columns if col not in df.columns]
+        """Validate scoring results using Great Expectations."""
+        # Use Great Expectations for comprehensive validation
+        validation_result = validate_data_quality(
+            df=df,
+            suite_name="market_data_validation",
+            data_asset_name="market_scoring_data",
+            fail_on_error=True
+        )
 
-        if missing_columns:
-            raise ValueError(f"Missing required columns: {missing_columns}")
-
-        if len(df) == 0:
-            raise ValueError("No scoring results generated")
-
-        # Check score ranges
-        if df['market_score'].min() < 0 or df['market_score'].max() > 100:
-            raise ValueError("Market scores outside valid range [0, 100]")
-
-        # Check for reasonable distribution
-        tier_counts = df['market_tier'].value_counts()
-        if len(tier_counts) == 0:
-            raise ValueError("No markets assigned to tiers")
-
-        self.logger.info(f"Scoring validation passed for {len(df)} markets")
+        self.logger.info(f"Great Expectations validation passed: {validation_result['successful_expectations']}/{validation_result['total_expectations']} expectations")
         return True
 
 

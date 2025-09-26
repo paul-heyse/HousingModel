@@ -1,0 +1,167 @@
+name: acs_income_validation
+version: 1.0.0
+description: "Great Expectations suite for ACS income data validation"
+
+datasources:
+  - name: pandas
+    class_name: PandasDatasource
+    data_asset_type:
+      class_name: PandasDataset
+
+expectation_suite_name: acs_income_suite
+
+meta:
+  created_by: HousingModel ETL
+  dataset_type: census_income
+  validation_level: strict
+
+expectations:
+  - expectation_type: expect_table_row_count_to_be_between
+    kwargs:
+      min_value: 100
+      max_value: 50000
+    meta:
+      description: "ACS income datasets should have reasonable row counts"
+
+  - expectation_type: expect_table_columns_to_match_ordered_list
+    kwargs:
+      column_list:
+        - name
+        - b19013_001e
+        - b01003_001e
+        - data_year
+        - source
+        - ingested_at
+        - as_of
+    meta:
+      description: "Required columns for ACS income data"
+
+  - expectation_type: expect_column_to_exist
+    kwargs:
+      column: name
+    meta:
+      description: "Geographic name column must exist"
+
+  - expectation_type: expect_column_to_exist
+    kwargs:
+      column: b19013_001e
+    meta:
+      description: "Median household income column must exist"
+
+  - expectation_type: expect_column_to_exist
+    kwargs:
+      column: b01003_001e
+    meta:
+      description: "Population column must exist"
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: name
+    meta:
+      description: "Geographic names cannot be null"
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: b19013_001e
+    meta:
+      description: "Income values cannot be null"
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: b01003_001e
+    meta:
+      description: "Population values cannot be null"
+
+  - expectation_type: expect_column_values_to_be_of_type
+    kwargs:
+      column: b19013_001e
+      type_: FLOAT
+    meta:
+      description: "Income must be numeric (float)"
+
+  - expectation_type: expect_column_values_to_be_of_type
+    kwargs:
+      column: b01003_001e
+      type_: FLOAT
+    meta:
+      description: "Population must be numeric (float)"
+
+  - expectation_type: expect_column_values_to_be_of_type
+    kwargs:
+      column: name
+      type_: STRING
+    meta:
+      description: "Geographic name must be string"
+
+  - expectation_type: expect_column_values_to_be_between
+    kwargs:
+      column: b19013_001e
+      min_value: 10000
+      max_value: 200000
+    meta:
+      description: "Median household income should be between $10k and $200k"
+
+  - expectation_type: expect_column_values_to_be_between
+    kwargs:
+      column: b01003_001e
+      min_value: 100
+      max_value: 10000000
+    meta:
+      description: "Population should be between 100 and 10 million"
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: data_year
+    meta:
+      description: "Data year must be specified"
+
+  - expectation_type: expect_column_values_to_be_of_type
+    kwargs:
+      column: data_year
+      type_: INTEGER
+    meta:
+      description: "Data year must be integer"
+
+  - expectation_type: expect_column_values_to_be_between
+    kwargs:
+      column: data_year
+      min_value: 2010
+      max_value: 2030
+    meta:
+      description: "Data year should be between 2010 and 2030"
+
+  - expectation_type: expect_column_values_to_be_in_set
+    kwargs:
+      column: source
+      value_set: ["census_api", "census_download"]
+    meta:
+      description: "Source must be valid census source"
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: ingested_at
+    meta:
+      description: "Ingestion timestamp must be present"
+
+  - expectation_type: expect_column_values_to_be_of_type
+    kwargs:
+      column: ingested_at
+      type_: TIMESTAMP
+    meta:
+      description: "Ingestion timestamp must be timestamp type"
+
+  - expectation_type: expect_column_pair_values_to_be_equal
+    kwargs:
+      column_A: data_year
+      column_B: data_year
+      ignore_row_if: never
+    meta:
+      description: "Data year consistency check (placeholder for cross-table validation)"
+
+  - expectation_type: expect_column_proportion_of_unique_values_to_be_between
+    kwargs:
+      column: name
+      min_value: 0.8
+      max_value: 1.0
+    meta:
+      description: "Geographic names should be mostly unique (80-100%)"

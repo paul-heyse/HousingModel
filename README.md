@@ -217,3 +217,38 @@ score_all_markets.schedule = "0 8 * * 1"   # Weekly on Monday at 8 AM
 - **Error Handling**: Automatic retries with exponential backoff
 - **Local Development**: Test flows locally before deployment
 - **Monitoring**: Integration with structured logging and metrics
+
+## Data Quality & Validation
+
+The platform enforces data quality through Great Expectations validation suites with automated quality gates:
+
+```python
+from aker_core.validation import validate_data_quality
+
+# Validate data in ETL flows
+validation_result = validate_data_quality(
+    df=market_data,
+    suite_name="market_data_validation",
+    fail_on_error=True
+)
+```
+
+**Quality Gates:**
+```bash
+# CI/CD quality gate validation
+python scripts/validate_quality_gate.py acs data/market_data.csv
+
+# List available validation suites
+python scripts/validate_quality_gate.py --list-suites
+
+# Validation with detailed reporting
+python scripts/validate_quality_gate.py market_data data/scores.parquet --output results.json
+```
+
+**Features:**
+- **Schema Validation**: Column existence, types, and nullability checks
+- **Range Validation**: Numeric ranges, categorical values, and temporal bounds
+- **Referential Integrity**: Foreign key relationships and cross-table consistency
+- **Coverage Validation**: Geographic and temporal data coverage requirements
+- **CI/CD Integration**: Quality gates that prevent deployment of invalid data
+- **Automated Monitoring**: Continuous validation with alerting on failures

@@ -1,0 +1,158 @@
+name: market_data_validation
+version: 1.0.0
+description: "Great Expectations suite for market data validation"
+
+datasources:
+  - name: pandas
+    class_name: PandasDatasource
+    data_asset_type:
+      class_name: PandasDataset
+
+expectation_suite_name: market_data_suite
+
+meta:
+  created_by: HousingModel ETL
+  dataset_type: market_data
+  validation_level: strict
+
+expectations:
+  - expectation_type: expect_table_row_count_to_be_between
+    kwargs:
+      min_value: 50
+      max_value: 10000
+    meta:
+      description: "Market datasets should have reasonable row counts"
+
+  - expectation_type: expect_table_columns_to_match_ordered_list
+    kwargs:
+      column_list:
+        - name
+        - market_score
+        - market_tier
+        - scoring_model
+        - scored_at
+        - data_year
+        - source
+    meta:
+      description: "Required columns for market scoring data"
+
+  - expectation_type: expect_column_to_exist
+    kwargs:
+      column: name
+    meta:
+      description: "Market name column must exist"
+
+  - expectation_type: expect_column_to_exist
+    kwargs:
+      column: market_score
+    meta:
+      description: "Market score column must exist"
+
+  - expectation_type: expect_column_to_exist
+    kwargs:
+      column: market_tier
+    meta:
+      description: "Market tier column must exist"
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: name
+    meta:
+      description: "Market names cannot be null"
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: market_score
+    meta:
+      description: "Market scores cannot be null"
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: market_tier
+    meta:
+      description: "Market tiers cannot be null"
+
+  - expectation_type: expect_column_values_to_be_of_type
+    kwargs:
+      column: market_score
+      type_: FLOAT
+    meta:
+      description: "Market score must be numeric (float)"
+
+  - expectation_type: expect_column_values_to_be_of_type
+    kwargs:
+      column: name
+      type_: STRING
+    meta:
+      description: "Market name must be string"
+
+  - expectation_type: expect_column_values_to_be_in_set
+    kwargs:
+      column: market_tier
+      value_set: ["A", "B", "C", "D"]
+    meta:
+      description: "Market tier must be A, B, C, or D"
+
+  - expectation_type: expect_column_values_to_be_between
+    kwargs:
+      column: market_score
+      min_value: 0
+      max_value: 100
+    meta:
+      description: "Market scores must be between 0 and 100"
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: data_year
+    meta:
+      description: "Data year must be specified"
+
+  - expectation_type: expect_column_values_to_be_of_type
+    kwargs:
+      column: data_year
+      type_: INTEGER
+    meta:
+      description: "Data year must be integer"
+
+  - expectation_type: expect_column_values_to_be_between
+    kwargs:
+      column: data_year
+      min_value: 2010
+      max_value: 2030
+    meta:
+      description: "Data year should be between 2010 and 2030"
+
+  - expectation_type: expect_column_values_to_be_in_set
+    kwargs:
+      column: scoring_model
+      value_set: ["simple_income_population_v1", "advanced_ml_v1"]
+    meta:
+      description: "Scoring model must be valid model name"
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: scored_at
+    meta:
+      description: "Scoring timestamp must be present"
+
+  - expectation_type: expect_column_values_to_be_of_type
+    kwargs:
+      column: scored_at
+      type_: TIMESTAMP
+    meta:
+      description: "Scoring timestamp must be timestamp type"
+
+  - expectation_type: expect_column_proportion_of_unique_values_to_be_between
+    kwargs:
+      column: name
+      min_value: 0.9
+      max_value: 1.0
+    meta:
+      description: "Market names should be unique (90-100%)"
+
+  - expectation_type: expect_column_values_to_be_in_set
+    kwargs:
+      column: source
+      value_set: ["data_lake", "census_transform", "scoring_pipeline"]
+    meta:
+      description: "Source must be valid data source"

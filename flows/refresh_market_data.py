@@ -6,6 +6,7 @@ import pandas as pd
 from prefect import flow, task
 
 from aker_core.cache import fetch
+from aker_core.validation import validate_data_quality
 from aker_data.lake import DataLake
 from .base import ETLFlow, etl_task, timed_flow, with_run_context
 
@@ -89,22 +90,16 @@ class MarketDataRefreshFlow(ETLFlow):
 
     @etl_task("validate_data_quality", "Validate data quality and completeness")
     def validate_data_quality(self, df: pd.DataFrame) -> bool:
-        """Validate data quality."""
-        # Basic validation checks
-        required_columns = ['name', 'b19013_001e', 'b01003_001e', 'data_year']
-        missing_columns = [col for col in required_columns if col not in df.columns]
+        """Validate data quality using Great Expectations."""
+        # Use Great Expectations for comprehensive validation
+        validation_result = validate_data_quality(
+            df=df,
+            suite_name="acs_income_validation",
+            data_asset_name="census_income_data",
+            fail_on_error=True
+        )
 
-        if missing_columns:
-            raise ValueError(f"Missing required columns: {missing_columns}")
-
-        if len(df) == 0:
-            raise ValueError("No valid data records found")
-
-        # Check for reasonable data ranges
-        if df['b19013_001e'].min() < 0 or df['b01003_001e'].min() < 0:
-            raise ValueError("Negative values found in income or population data")
-
-        self.logger.info(f"Data quality validation passed for {len(df)} records")
+        self.logger.info(f"Great Expectations validation passed: {validation_result['successful_expectations']}/{validation_result['total_expectations']} expectations")
         return True
 
 

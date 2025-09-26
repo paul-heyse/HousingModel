@@ -1,3 +1,4 @@
 HousingModel
 aker_core
 aker_data
+aker_geo

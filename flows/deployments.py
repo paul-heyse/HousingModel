@@ -7,6 +7,7 @@ from prefect.client.schemas import Schedule
 
 from .refresh_market_data import refresh_market_data
 from .score_all_markets import score_all_markets
+from .collect_permits import collect_permits
 
 
 # Market data refresh - daily at 6 AM
@@ -55,6 +56,33 @@ market_scoring_manual = deployment(
     work_queue_name="default",
 )
 
+# Permit collection - weekly on Wednesday at 2 AM
+permit_collection = deployment(
+    name="permit-collection-weekly",
+    flow=collect_permits,
+    schedule=Schedule(cron="0 2 * * 3"),  # Weekly on Wednesday at 2 AM
+    parameters={
+        "cities_states": [("New York", "NY"), ("Los Angeles", "CA")],
+        "permit_types": ["residential_new", "residential_renovation", "commercial_new"]
+    },
+    tags=["etl", "permits", "weekly"],
+    description="Weekly collection of building permits from major cities",
+    version="1.0.0",
+    work_pool_name="default-work-pool",
+    work_queue_name="default",
+)
+
+# Permit collection manual (no schedule)
+permit_collection_manual = deployment(
+    name="permit-collection-manual",
+    flow=collect_permits,
+    tags=["etl", "permits", "manual"],
+    description="Manual collection of building permits",
+    version="1.0.0",
+    work_pool_name="default-work-pool",
+    work_queue_name="default",
+)
+
 
 if __name__ == "__main__":
     # Deploy all flows
@@ -71,5 +99,11 @@ if __name__ == "__main__":
         print("✓ Market scoring deployment created")
     except Exception as e:
         print(f"✗ Failed to deploy market scoring: {e}")
+
+    try:
+        permit_collection.apply()
+        print("✓ Permit collection deployment created")
+    except Exception as e:
+        print(f"✗ Failed to deploy permit collection: {e}")
 
     print("Deployment complete!")
