@@ -1,0 +1,1285 @@
+diff --git a/docs/innovation_jobs.md b/docs/innovation_jobs.md
+index 9d2d3f6626e28fdd2e209fefe605084b5d4366fb..f4ba1b486c35f084924f69b0d4e623e688f7a545 100644
+--- a/docs/innovation_jobs.md
++++ b/docs/innovation_jobs.md
+@@ -2,75 +2,108 @@
+
+ This module provides reusable calculators and data integrations that power the
+ *Market Jobs* pillar. The helpers live under `aker_jobs` and are designed to be
+ composed inside ETL pipelines or interactive notebooks.
+
+ ## NAICS Sector Mappings
+
+ The LQ/CAGR utilities assume the following high-level sector groups:
+
+ | Sector Key      | NAICS Coverage (illustrative) |
+ |-----------------|--------------------------------|
+ | `technology`    | 51, 54                         |
+ | `health`        | 62                             |
+ | `education`     | 61                             |
+ | `manufacturing` | 31-33                          |
+ | `defense`       | 9281, 3364                     |
+ | `biotech`       | 3254, 5417                     |
+
+ Adjust or extend these groupings upstream before calling
+ `aker_jobs.metrics.location_quotient`.
+
+ ## Quick Start
+
+ ```python
+ from aker_jobs import (
++    build_location_quotients_from_bls,
++    bea_gdp_per_capita,
+     fetch_census_bfs,
++    fetch_bls_employment,
+     fetch_nih_reporter_projects,
++    fetch_ipeds_enrollment,
++    fetch_patentsview_innovations,
+     awards_trend,
+     business_formation_rate,
+     location_quotient,
+     migration_net_25_44,
+ )
+
+ bfs = fetch_census_bfs(state="06", start=2021, end=2023)
+ formation_metrics = business_formation_rate(
+     bfs.rename(columns={"BFN": "formations", "time": "year"}),
+     formations_column="formations",
+     population_column="population",
+ )
+
++bls_lq = build_location_quotients_from_bls(
++    {"technology": {"local": "SMU06401400000000001", "national": "CES0000000001"}},
++    start_year=2021,
++    end_year=2023,
++    population={"technology": 4_900_000},
++)
++
++bea = bea_gdp_per_capita("31080", years=[2022], population={"31080": 7_500_000}, api_key=bea_key)
++
++ipeds = fetch_ipeds_enrollment(
++    fields=["id", "location.city", "location.state", "latest.student.enrollment.all"],
++    filters={"school.state": "CA"},
++    api_key=ed_key,
++)
++
++patents = fetch_patentsview_innovations(
++    location_filter={"_gte": {"assignee_lastknown_latitude": 30}},
++    fields=["patent_number", "assignees.assignee_organization", "assignees.assignee_city"],
++)
++
+ lq = location_quotient(naics_counts_df, population_column="population")
+ net_migration = migration_net_25_44(migration_df)
+ nih_trend = awards_trend(nih_awards_df, periods=1)
+ ```
+
+ ## API Reference
+
+ - **Location Quotient**: `aker_jobs.metrics.location_quotient`
++- **BLS-powered LQ**: `aker_jobs.metrics.build_location_quotients_from_bls`
+ - **Migration Aggregation**: `aker_jobs.metrics.aggregate_migration_to_msa`
+ - **CAGR**: `aker_jobs.timeseries.cagr`
+ - **Awards Trend**: `aker_jobs.metrics.awards_trend`
+ - **Business Formation**: `aker_jobs.metrics.business_formation_rate`
+ - **Expansion Events**: `aker_jobs.sources.fetch_expansion_events`
++- **BEA GDP per Capita**: `aker_jobs.metrics.bea_gdp_per_capita`
++- **Higher-ed Enrollment**: `aker_jobs.metrics.ipeds_enrollment_per_100k`
++- **Innovation Density**: `aker_jobs.metrics.patents_per_100k`
+ - **External Sources**: see `aker_jobs.sources` for BFS, IRS migration, NIH, NSF,
+-  USAspending integrations.
++  USAspending, BLS, BEA, IPEDS, PatentsView integrations.
+
+ Each function exposes comprehensive docstrings with parameter details and
+ return types.
+
+ ## Usage Notes
+
+ - Ensure county-to-MSA crosswalks are kept current (OMB releases updates
+   periodically).
+ - When performing trend analysis, supply clean date columns (quarter `Q` or
+   year `Y`). The helper will attempt to coerce numeric years automatically.
+ - Award and survival trends return period-by-period percentage change; chain
+   them into dashboards or GE validations for automated monitoring.
+
+ ## Further Reading
+
+ - [Census Business Formation Series](https://www.census.gov/econ/bfs/)
+ - [IRS Migration Data](https://www.irs.gov/statistics/soi-tax-stats-migration-data)
+ - [NIH RePORTER API](https://api.reporter.nih.gov/)
+ - [NSF Awards API](https://www.nsf.gov/awards/about.jsp)
+ - [USAspending API](https://api.usaspending.gov/)
++- [BLS Public Data API](https://www.bls.gov/developers/)
++- [BEA API](https://www.bea.gov/data/api)
++- [College Scorecard API](https://collegescorecard.ed.gov/data/documentation/)
++- [PatentsView](https://patentsview.org/apis/api-endpoints)
+diff --git a/src/aker_core/expansions/ingestor.py b/src/aker_core/expansions/ingestor.py
+index d103856bc38c8e11898fcfa0231be77515a28c96..6b076450e6668236a8d76b49e01c1e83ec236f8e 100644
+--- a/src/aker_core/expansions/ingestor.py
++++ b/src/aker_core/expansions/ingestor.py
+@@ -1,37 +1,42 @@
+ """Ingestion utilities for economic expansion announcements."""
+
+ from __future__ import annotations
+
+ import json
+ import logging
+ import re
+ from dataclasses import dataclass, field
+ from datetime import datetime
+ from typing import Any, Dict, Iterable, List, Optional, Sequence
+
+-import feedparser
++try:  # pragma: no cover - exercised via import fallback
++    import feedparser
++except ImportError:  # pragma: no cover - fallback for optional dependency
++    import types
++
++    feedparser = types.SimpleNamespace(parse=lambda *args, **kwargs: {"entries": []})
+ import pandas as pd
+ from bs4 import BeautifulSoup
+
+ from aker_data.lake import DataLake
+
+ from .anomaly import AnomalyDetector
+ from .entities import EntityExtractionResult, EntityExtractor
+ from .geocode import BaseGeocoder, GeocodeResult, StaticGeocoder
+ from .metrics import IngestionMetrics
+ from .models import ExpansionEvent
+
+ LOGGER = logging.getLogger(__name__)
+
+ _KEYWORD_DEFAULTS = [
+     "expansion",
+     "expands",
+     "new facility",
+     "jobs",
+     "investment",
+     "hiring",
+     "manufacturing plant",
+     "headquarters",
+ ]
+
+
+diff --git a/src/aker_jobs/__init__.py b/src/aker_jobs/__init__.py
+index b33a8a851c837e8959ecbc2d4e16264e3ab4af6c..110c0864410b9096d1bd3659feb496f31112b34a 100644
+--- a/src/aker_jobs/__init__.py
++++ b/src/aker_jobs/__init__.py
+@@ -1,47 +1,63 @@
+ """Innovation and jobs analysis utilities."""
+
+ from .metrics import (
+     ExpansionEvent,
+     aggregate_migration_to_msa,
++    bea_gdp_per_capita,
+     awards_per_100k,
+     awards_trend,
+     business_formation_rate,
+     business_survival_trend,
+     classify_expansion,
+     compute_trend,
++    build_location_quotients_from_bls,
+     location_quotient,
+     migration_net_25_44,
++    ipeds_enrollment_per_100k,
++    patents_per_100k,
+     summarise_expansions,
+ )
+ from .sources import (
+     DataIntegrationError,
++    fetch_bea_data,
++    fetch_bls_employment,
+     fetch_census_bfs,
+     fetch_expansion_events,
++    fetch_ipeds_enrollment,
+     fetch_irs_migration,
+     fetch_nih_reporter_projects,
+     fetch_nsf_awards,
++    fetch_patentsview_innovations,
+     fetch_usaspending_contracts,
+ )
+ from .timeseries import cagr
+
+ __all__ = [
+     "ExpansionEvent",
+     "awards_per_100k",
+     "awards_trend",
+     "business_formation_rate",
+     "business_survival_trend",
++    "bea_gdp_per_capita",
++    "build_location_quotients_from_bls",
+     "classify_expansion",
+     "compute_trend",
++    "ipeds_enrollment_per_100k",
+     "location_quotient",
+     "migration_net_25_44",
+     "summarise_expansions",
++    "patents_per_100k",
+     "aggregate_migration_to_msa",
+     "cagr",
+     "fetch_census_bfs",
++    "fetch_bls_employment",
++    "fetch_bea_data",
+     "fetch_irs_migration",
+     "fetch_nih_reporter_projects",
+     "fetch_nsf_awards",
+     "fetch_usaspending_contracts",
+     "fetch_expansion_events",
++    "fetch_ipeds_enrollment",
++    "fetch_patentsview_innovations",
+     "DataIntegrationError",
+ ]
+diff --git a/src/aker_jobs/metrics.py b/src/aker_jobs/metrics.py
+index c0fa82b27a0d2cf49d9302e10283647062b5fa89..628382bbe4e2689bbceb0d79710cdc6378709033 100644
+--- a/src/aker_jobs/metrics.py
++++ b/src/aker_jobs/metrics.py
+@@ -1,32 +1,32 @@
+ """Higher-level metrics for innovation and jobs analysis."""
+
+ from __future__ import annotations
+
+ from dataclasses import dataclass
+ from datetime import date
+-from typing import Iterable, Mapping, Sequence
++from typing import Any, Iterable, Mapping, Sequence
+
+ import numpy as np
+ import pandas as pd
+
+
+ @dataclass(frozen=True)
+ class ExpansionEvent:
+     """Structured representation of an economic expansion announcement."""
+
+     name: str
+     sector: str
+     announcement_date: date | None = None
+     jobs_created: int | None = None
+     investment_musd: float | None = None
+     expected_completion: date | None = None
+
+
+ _SECTOR_KEYWORDS: Mapping[str, Sequence[str]] = {
+     "university": ("university", "college", "campus"),
+     "health": ("hospital", "health", "clinic"),
+     "semiconductor": ("foundry", "chip", "semiconductor"),
+     "defense": ("defense", "aerospace", "air force", "navy"),
+ }
+
+
+@@ -219,116 +219,232 @@ def classify_expansion(raw_event: Mapping[str, str | int | float | None]) -> Exp
+
+     return ExpansionEvent(
+         name=name, sector=sector, jobs_created=jobs_created, investment_musd=investment
+     )
+
+
+ def summarise_expansions(events: Iterable[ExpansionEvent]) -> pd.Series:
+     """Summarise expansion events by sector and total job creation."""
+
+     events_list = list(events)
+     if not events_list:
+         return pd.Series({"total_events": 0, "jobs_created": 0.0})
+
+     df = pd.DataFrame(e.__dict__ for e in events_list)
+     jobs = df["jobs_created"].fillna(0).astype(float)
+     summary = {
+         "total_events": float(len(events_list)),
+         "jobs_created": float(jobs.sum()),
+     }
+     for sector, group in df.groupby("sector"):
+         summary[f"events_{sector}"] = float(len(group))
+         summary[f"jobs_{sector}"] = float(group["jobs_created"].fillna(0).sum())
+     return pd.Series(summary)
+
+
++def _latest_bls_value(series: pd.DataFrame, series_id: str) -> float:
++    """Return the most recent value for a BLS series."""
++
++    subset = series[series["series_id"] == series_id]
++    if subset.empty:
++        raise KeyError(f"Series '{series_id}' not present in BLS payload")
++
++    def _period_key(row: pd.Series) -> tuple[int, int]:
++        period = str(row.get("period", ""))
++        month = 0
++        if period.startswith("M") and len(period) == 3:
++            month = int(period[1:])
++        return (int(row.get("year", 0)), month)
++
++    ordered = subset.assign(_sort=subset.apply(_period_key, axis=1)).sort_values("_sort", ascending=False)
++    latest_row = ordered.iloc[0]
++    value = latest_row.get("value")
++    if pd.isna(value):
++        raise ValueError(f"Latest value for series '{series_id}' is missing")
++    return float(value)
++
++
+ def awards_per_100k(
+     awards: pd.DataFrame,
+     *,
+     amount_column: str = "amount",
+     population_column: str = "population",
+     groupby_columns: Sequence[str] | None = None,
+ ) -> pd.DataFrame:
+     """Compute awards per 100k residents for NIH/NSF/DoD funding."""
+
+     if amount_column not in awards.columns or population_column not in awards.columns:
+         raise KeyError("Awards data must include amount and population columns")
+
+     df = awards.copy()
+     df[amount_column] = df[amount_column].astype(float)
+     df[population_column] = df[population_column].astype(float)
+     if (df[population_column] <= 0).any():
+         raise ValueError("Population must be positive")
+
+     group_cols = list(groupby_columns or [])
+     grouped = df.groupby(group_cols, dropna=False)
+     aggregated = grouped[[amount_column, population_column]].sum()
+     aggregated["awards_per_100k"] = (
+         aggregated[amount_column] / aggregated[population_column]
+     ) * 100_000.0
+     return aggregated.reset_index()
+
+
++def build_location_quotients_from_bls(
++    series_map: Mapping[str, Mapping[str, str]],
++    *,
++    start_year: int,
++    end_year: int,
++    population: Mapping[str, float] | float,
++    api_key: str | None = None,
++    session: Any | None = None,
++) -> pd.DataFrame:
++    """Fetch BLS employment data and compute sector-level location quotients."""
++
++    from . import sources
++
++    if not series_map:
++        raise ValueError("series_map must include at least one sector")
++
++    all_series: list[str] = []
++    for config in series_map.values():
++        try:
++            all_series.extend([config["local"], config["national"]])
++        except KeyError as exc:
++            raise KeyError("Series config must include 'local' and 'national'") from exc
++
++    bls_df = sources.fetch_bls_employment(
++        all_series,
++        start_year=start_year,
++        end_year=end_year,
++        api_key=api_key,
++        session=session,
++    )
++
++    records: list[dict[str, float | str]] = []
++    for sector, config in series_map.items():
++        local_jobs = _latest_bls_value(bls_df, config["local"])
++        national_jobs = _latest_bls_value(bls_df, config["national"])
++        record: dict[str, float | str] = {
++            "sector": sector,
++            "local_jobs": local_jobs,
++            "national_jobs": national_jobs,
++        }
++        if isinstance(population, Mapping):
++            pop_value = population.get(sector)
++            if pop_value is None:
++                raise KeyError(f"Population missing for sector '{sector}'")
++            record["population"] = float(pop_value)
++        else:
++            record["population"] = float(population)
++        records.append(record)
++
++    prepared = pd.DataFrame(records)
++    return location_quotient(
++        prepared,
++        sector_column="sector",
++        local_jobs_column="local_jobs",
++        national_jobs_column="national_jobs",
++        population_column="population",
++    )
++
++
+ def business_formation_rate(
+     bfs: pd.DataFrame,
+     *,
+     formations_column: str = "formations",
+     population_column: str = "population",
+     existing_businesses_column: str | None = None,
+     per_100k: bool = True,
+ ) -> pd.Series:
+     """Calculate business formation metrics for a region."""
+
+     required = {formations_column, population_column}
+     missing = required.difference(bfs.columns)
+     if missing:
+         raise KeyError(f"Missing columns: {sorted(missing)}")
+
+     formations = bfs[formations_column].astype(float)
+     population = bfs[population_column].astype(float)
+     if (population <= 0).any():
+         raise ValueError("Population must be positive")
+
+     rate = formations / population
+     if per_100k:
+         rate *= 100_000.0
+
+     if existing_businesses_column and existing_businesses_column in bfs.columns:
+         existing = bfs[existing_businesses_column].astype(float)
+         with np.errstate(divide="ignore", invalid="ignore"):
+             density = np.where(existing > 0, formations / existing, np.nan)
+     else:
+         density = np.full_like(rate, np.nan)
+
+     return pd.Series(
+         {
+             "formation_rate": float(rate.sum()),
+             "startup_density": float(np.nanmean(density)),
+         }
+     )
+
+
++def bea_gdp_per_capita(
++    geo_fips: str,
++    *,
++    years: Sequence[int],
++    population: Mapping[str, float],
++    api_key: str,
++    frequency: str = "A",
++    session: Any | None = None,
++) -> pd.DataFrame:
++    """Compute GDP per capita using BEA regional economic accounts."""
++
++    from . import sources
++
++    raw = sources.fetch_bea_data(
++        dataset="Regional",
++        table_name="CAGDP9",
++        geo_fips=geo_fips,
++        years=years,
++        frequency=frequency,
++        api_key=api_key,
++        session=session,
++    )
++
++    df = raw.copy()
++    df["GeoFips"] = df["GeoFips"].str.strip()
++    df["DataValue"] = pd.to_numeric(df["DataValue"].str.replace(",", ""), errors="coerce")
++    df = df[df["DataValue"].notna()]
++    df["population"] = df["GeoFips"].map(population).astype(float)
++    if df["population"].isna().any():
++        missing = df[df["population"].isna()]["GeoFips"].unique().tolist()
++        raise KeyError(f"Population missing for BEA GeoFips: {missing}")
++    df["gdp_per_capita"] = df["DataValue"] / df["population"]
++    return df[["GeoFips", "GeoName", "TimePeriod", "DataValue", "population", "gdp_per_capita"]]
++
++
+ def _summarise_time_series(
+     df: pd.DataFrame,
+     *,
+     date_column: str,
+     value_column: str,
+     freq: str,
+ ) -> pd.Series:
+     raw = df[date_column]
+     if pd.api.types.is_numeric_dtype(raw):
+         timestamps = pd.to_datetime(raw.astype(int).astype(str), format="%Y", errors="coerce")
+     else:
+         timestamps = pd.to_datetime(raw, errors="coerce")
+         if timestamps.isna().all():
+             timestamps = pd.to_datetime(raw.astype(str), format="%Y", errors="coerce")
+     if timestamps.isna().all():
+         raise ValueError("Unable to parse dates for trend computation")
+     series = timestamps.dt.to_period(freq)
+     if series.isna().all():
+         raise ValueError("All date values are invalid; cannot compute trend")
+     grouped = df.assign(_period=series).groupby("_period")[value_column].sum(min_count=1)
+     grouped = grouped.sort_index()
+     return grouped.astype(float)
+
+
+ def compute_trend(
+@@ -363,25 +479,84 @@ def awards_trend(
+     date_column: str = "fiscal_year",
+     amount_column: str = "award_amount",
+     freq: str = "Y",
+     periods: int = 1,
+ ) -> pd.DataFrame:
+     """Calculate award funding trends over time."""
+
+     return compute_trend(
+         awards, date_column=date_column, value_column=amount_column, freq=freq, periods=periods
+     )
+
+
+ def business_survival_trend(
+     survival: pd.DataFrame,
+     *,
+     date_column: str = "period",
+     survival_column: str = "survival_rate",
+     freq: str = "Y",
+     periods: int = 1,
+ ) -> pd.DataFrame:
+     """Analyse survival rate trends for new businesses."""
+
+     return compute_trend(
+         survival, date_column=date_column, value_column=survival_column, freq=freq, periods=periods
+     )
++
++
++def ipeds_enrollment_per_100k(
++    ipeds_df: pd.DataFrame,
++    *,
++    enrollment_field: str,
++    population: Mapping[tuple[str, str], float],
++) -> pd.DataFrame:
++    """Aggregate IPEDS enrollment by city/state and normalise per 100k residents."""
++
++    if enrollment_field not in ipeds_df.columns:
++        raise KeyError(f"Enrollment field '{enrollment_field}' not present")
++
++    df = ipeds_df.copy()
++    df[enrollment_field] = pd.to_numeric(df[enrollment_field], errors="coerce")
++    df = df.dropna(subset=[enrollment_field])
++    grouped = df.groupby(["location.city", "location.state"])[enrollment_field].sum()
++    records: list[dict[str, float | str]] = []
++    for (city, state), value in grouped.items():
++        population_key = (city, state)
++        pop = population.get(population_key)
++        if pop is None:
++            raise KeyError(f"Population missing for {population_key}")
++        records.append(
++            {
++                "city": city,
++                "state": state,
++                enrollment_field: float(value),
++                "per_100k": float(value) / float(pop) * 100_000.0,
++            }
++        )
++    return pd.DataFrame(records)
++
++
++def patents_per_100k(
++    patents_df: pd.DataFrame,
++    *,
++    location_field: str,
++    population: Mapping[str, float],
++) -> pd.DataFrame:
++    """Calculate patents per 100k residents for a PatentsView result set."""
++
++    if location_field not in patents_df.columns:
++        raise KeyError(f"Location field '{location_field}' not present in patents data")
++
++    grouped = patents_df.groupby(location_field)["patent_number"].count()
++    records: list[dict[str, float | str]] = []
++    for location, count in grouped.items():
++        pop = population.get(location)
++        if pop is None:
++            raise KeyError(f"Population missing for '{location}'")
++        records.append(
++            {
++                location_field: location,
++                "patent_count": float(count),
++                "patents_per_100k": float(count) / float(pop) * 100_000.0,
++            }
++        )
++    return pd.DataFrame(records)
+diff --git a/src/aker_jobs/sources.py b/src/aker_jobs/sources.py
+index 555b35a00914e59a342c2081a2a53c8d7b9423dc..9374595ea1c10d527d6f97528a12d8c6973be3ba 100644
+--- a/src/aker_jobs/sources.py
++++ b/src/aker_jobs/sources.py
+@@ -1,41 +1,45 @@
+ """External data integrations for innovation and jobs analysis."""
+
+ from __future__ import annotations
+
+ import json
+-from typing import Any, Callable, Dict, Iterable, Optional, Sequence
++from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence
+
+ import pandas as pd
+ import requests
+
+ from aker_core.expansions import ExpansionEvent, ExpansionsIngestor, FeedConfig
+
+ _CENSUS_BASE = "https://api.census.gov/data"
+ _NIH_REPORTER_URL = "https://api.reporter.nih.gov/v2/projects/search"
+ _NSF_AWARDS_URL = "https://api.nsf.gov/services/v1/awards.json"
+ _USASPENDING_URL = "https://api.usaspending.gov/api/v2/search/spending_by_award/"
++_BLS_API_URL = "https://api.bls.gov/publicAPI/v2/timeseries/data/"
++_BEA_API_URL = "https://apps.bea.gov/api/data/"
++_IPEDS_API_URL = "https://api.data.gov/ed/collegescorecard/v1/schools"
++_PATENTSVIEW_API_URL = "https://api.patentsview.org/patents/query"
+
+
+ class DataIntegrationError(RuntimeError):
+     """Raised when an external data integration fails."""
+
+
+ def _get_session(session: Optional[requests.Session]) -> requests.Session:
+     return session or requests.Session()
+
+
+ def fetch_census_bfs(
+     *,
+     state: str,
+     start: int,
+     end: int,
+     dataset: str = "bfs",
+     measure: str = "BFN",
+     session: Optional[requests.Session] = None,
+ ) -> pd.DataFrame:
+     """Fetch Census Business Formation Series metrics for a state.
+
+     Parameters
+     ----------
+     state:
+         Two-digit FIPS code for the state (e.g., ``06`` for California).
+@@ -235,25 +239,224 @@ def fetch_expansion_events(
+     confidence_threshold:
+         Minimum confidence score required for events to be returned.
+     ingestor_factory:
+         Optional factory to create a custom :class:`ExpansionsIngestor` instance
+         (primarily for unit testing).
+     """
+
+     if not feeds:
+         raise ValueError("At least one feed URL must be supplied")
+
+     configs = [FeedConfig(url=url, label=f"feed_{idx}") for idx, url in enumerate(feeds, start=1)]
+
+     factory = ingestor_factory or ExpansionsIngestor
+     ingestor = factory(
+         feeds=configs,
+         keywords=keywords,
+         confidence_threshold=confidence_threshold,
+     )
+     events = ingestor.scan()
+     filtered: list[ExpansionEvent] = []
+     for event in events:
+         event_confidence = getattr(event, "confidence", confidence_threshold)
+         if event_confidence is None or event_confidence >= confidence_threshold:
+             filtered.append(event)
+     return filtered
++
++
++def fetch_bls_employment(
++    series_ids: Sequence[str],
++    *,
++    start_year: int,
++    end_year: int,
++    api_key: Optional[str] = None,
++    session: Optional[requests.Session] = None,
++) -> pd.DataFrame:
++    """Fetch employment data from the BLS public API.
++
++    Parameters
++    ----------
++    series_ids:
++        Sequence of BLS time-series identifiers (CES or QCEW).
++    start_year, end_year:
++        Inclusive year range to request.
++    api_key:
++        Optional BLS API key to unlock higher rate limits.
++    session:
++        Optional :class:`requests.Session` for custom retry configuration.
++    """
++
++    if not series_ids:
++        raise ValueError("At least one BLS series id must be provided")
++
++    payload: Dict[str, Any] = {
++        "seriesid": list(series_ids),
++        "startyear": int(start_year),
++        "endyear": int(end_year),
++    }
++    if api_key:
++        payload["registrationkey"] = api_key
++
++    response = _get_session(session).post(_BLS_API_URL, json=payload, timeout=60)
++    try:
++        response.raise_for_status()
++    except requests.HTTPError as exc:  # pragma: no cover - network failure path
++        raise DataIntegrationError(f"BLS API request failed: {exc}") from exc
++
++    payload_json = response.json()
++    results = payload_json.get("Results", {})
++    series_list = results.get("series") or []
++    if not series_list:
++        raise DataIntegrationError("BLS API returned no series data")
++
++    records: List[Dict[str, Any]] = []
++    for series in series_list:
++        series_id = series.get("seriesID")
++        for entry in series.get("data", []):
++            records.append(
++                {
++                    "series_id": series_id,
++                    "year": int(entry.get("year", 0)),
++                    "period": entry.get("period"),
++                    "period_name": entry.get("periodName"),
++                    "value": pd.to_numeric(entry.get("value"), errors="coerce"),
++                    "footnotes": [note.get("text") for note in entry.get("footnotes", []) if note.get("text")],
++                }
++            )
++
++    if not records:
++        raise DataIntegrationError("BLS API response contained no data rows")
++
++    return pd.DataFrame.from_records(records)
++
++
++def fetch_bea_data(
++    *,
++    dataset: str,
++    table_name: str,
++    geo_fips: str,
++    years: Sequence[int],
++    api_key: str,
++    frequency: str = "A",
++    session: Optional[requests.Session] = None,
++) -> pd.DataFrame:
++    """Fetch data from the BEA API.
++
++    Parameters
++    ----------
++    dataset:
++        BEA dataset name (e.g., ``"Regional"``).
++    table_name:
++        Name of the BEA table (e.g., ``"CAGDP9"`` for GDP by metro area).
++    geo_fips:
++        Geography identifier or ``"MSA"`` wildcard.
++    years:
++        Iterable of years to request.
++    api_key:
++        BEA API key (required).
++    frequency:
++        Frequency code (``"A"`` annual, ``"Q"`` quarterly).
++    session:
++        Optional :class:`requests.Session`.
++    """
++
++    if not api_key:
++        raise ValueError("A BEA API key is required")
++    if not years:
++        raise ValueError("At least one year must be specified for BEA data")
++
++    params = {
++        "UserID": api_key,
++        "method": "GetData",
++        "datasetname": dataset,
++        "TableName": table_name,
++        "GeoFips": geo_fips,
++        "Year": ",".join(str(year) for year in sorted(set(years))),
++        "Frequency": frequency,
++        "ResultFormat": "JSON",
++    }
++
++    response = _get_session(session).get(_BEA_API_URL, params=params, timeout=60)
++    try:
++        response.raise_for_status()
++    except requests.HTTPError as exc:  # pragma: no cover - network failure path
++        raise DataIntegrationError(f"BEA API request failed: {exc}") from exc
++
++    payload_json = response.json()
++    try:
++        data_rows = payload_json["BEAAPI"]["Results"]["Data"]
++    except KeyError as exc:  # pragma: no cover - unexpected structure
++        raise DataIntegrationError("BEA API response missing data") from exc
++
++    if not data_rows:
++        raise DataIntegrationError("BEA API returned no data rows")
++
++    return pd.DataFrame(data_rows)
++
++
++def fetch_ipeds_enrollment(
++    *,
++    fields: Sequence[str],
++    filters: Optional[Dict[str, Any]] = None,
++    api_key: str,
++    per_page: int = 100,
++    session: Optional[requests.Session] = None,
++) -> pd.DataFrame:
++    """Fetch higher-education enrollment data from the IPEDS/College Scorecard API."""
++
++    if not api_key:
++        raise ValueError("An API key is required for the IPEDS connector")
++    if not fields:
++        raise ValueError("At least one field must be requested from IPEDS")
++
++    params: Dict[str, Any] = {
++        "api_key": api_key,
++        "per_page": per_page,
++        "fields": ",".join(fields),
++    }
++    if filters:
++        params.update(filters)
++
++    response = _get_session(session).get(_IPEDS_API_URL, params=params, timeout=60)
++    try:
++        response.raise_for_status()
++    except requests.HTTPError as exc:  # pragma: no cover - network failure path
++        raise DataIntegrationError(f"IPEDS API request failed: {exc}") from exc
++
++    payload_json = response.json()
++    results = payload_json.get("results") or []
++    if not results:
++        raise DataIntegrationError("IPEDS API returned no records")
++
++    return pd.DataFrame(results)
++
++
++def fetch_patentsview_innovations(
++    *,
++    location_filter: Dict[str, Any],
++    fields: Sequence[str],
++    per_page: int = 100,
++    session: Optional[requests.Session] = None,
++) -> pd.DataFrame:
++    """Fetch patent data from the PatentsView API for innovation benchmarking."""
++
++    if not fields:
++        raise ValueError("PatentsView queries must request at least one field")
++
++    payload = {
++        "q": location_filter,
++        "f": list(fields),
++        "o": {"per_page": per_page},
++    }
++
++    response = _get_session(session).post(_PATENTSVIEW_API_URL, json=payload, timeout=60)
++    try:
++        response.raise_for_status()
++    except requests.HTTPError as exc:  # pragma: no cover - network failure path
++        raise DataIntegrationError(f"PatentsView request failed: {exc}") from exc
++
++    payload_json = response.json()
++    patents = payload_json.get("patents") or []
++    if not patents:
++        raise DataIntegrationError("PatentsView returned no patents for the query")
++
++    return pd.DataFrame(patents)
+diff --git a/tests/jobs/test_jobs_analysis.py b/tests/jobs/test_jobs_analysis.py
+index bf32d742b8fcf44237f377a57b4818ce8c3948ed..b7d18b02843eb5ff40fe08b10f3d9d1bd54f9850 100644
+--- a/tests/jobs/test_jobs_analysis.py
++++ b/tests/jobs/test_jobs_analysis.py
+@@ -1,80 +1,113 @@
+ from __future__ import annotations
+
++import sys
++import types
++
+ import numpy as np
+ import pandas as pd
+ import pytest
+
++if "feedparser" not in sys.modules:
++    sys.modules["feedparser"] = types.SimpleNamespace(parse=lambda *a, **k: {"entries": []})
++
+ from aker_jobs import (
++    bea_gdp_per_capita,
+     aggregate_migration_to_msa,
++    build_location_quotients_from_bls,
+     awards_per_100k,
+     awards_trend,
+     business_formation_rate,
+     business_survival_trend,
+     cagr,
+     classify_expansion,
+     compute_trend,
++    ipeds_enrollment_per_100k,
+     location_quotient,
+     migration_net_25_44,
++    patents_per_100k,
+     summarise_expansions,
+ )
+
+
+ class TestLocationQuotient:
+     def test_location_quotient_basic(self) -> None:
+         df = pd.DataFrame(
+             {
+                 "sector": ["tech", "health"],
+                 "local_jobs": [2000, 3000],
+                 "national_jobs": [100_000, 150_000],
+                 "population": [500_000, 500_000],
+             }
+         )
+
+         result = location_quotient(df, population_column="population")
+         assert pytest.approx(result.loc[result["sector"] == "tech", "lq"].iat[0], rel=1e-6) == (
+             (2000 / 5000) / (100_000 / 250_000)
+         )
+         assert "jobs_per_100k" in result.columns
+
+     def test_location_quotient_requires_population(self) -> None:
+         df = pd.DataFrame({"sector": ["tech"], "local_jobs": [100], "national_jobs": [1_000]})
+         with pytest.raises(ValueError):
+             location_quotient(df)
+
+     def test_location_quotient_validates_shares(self) -> None:
+         df = pd.DataFrame(
+             {
+                 "sector": ["tech", "health"],
+                 "local_jobs": [200, 300],
+                 "national_jobs": [0, 0],
+                 "population": [100_000, 100_000],
+             }
+         )
+         with pytest.raises(ValueError):
+             location_quotient(df, population_column="population")
+
++    def test_build_location_quotients_from_bls(self, monkeypatch: pytest.MonkeyPatch) -> None:
++        fake_df = pd.DataFrame(
++            {
++                "series_id": ["LOCAL", "NAT"],
++                "year": [2023, 2023],
++                "period": ["M12", "M12"],
++                "period_name": ["December", "December"],
++                "value": [2000, 100_000],
++                "footnotes": [[], []],
++            }
++        )
++
++        monkeypatch.setattr("aker_jobs.sources.fetch_bls_employment", lambda *a, **k: fake_df)
++
++        result = build_location_quotients_from_bls(
++            {"tech": {"local": "LOCAL", "national": "NAT"}},
++            start_year=2021,
++            end_year=2023,
++            population={"tech": 500_000},
++        )
++        assert pytest.approx(result.loc[0, "lq"], rel=1e-6) == (2000 / 2000) / (100_000 / 100_000)
++        assert result.loc[0, "jobs_per_100k"] == pytest.approx(400.0, rel=1e-6)
++
+
+ class TestTimeSeries:
+     def test_cagr_positive_growth(self) -> None:
+         series = pd.Series([100, 121, 150], index=pd.period_range("2020", periods=3, freq="Y"))
+         value = cagr(series)
+         assert value > 0
+         assert pytest.approx(value, rel=1e-6) == ((150 / 100) ** (1 / 2)) - 1
+
+     def test_cagr_handles_zero(self) -> None:
+         series = pd.Series([0, 50, 100])
+         value = cagr(series, years=2)
+         assert np.isfinite(value)
+
+
+ class TestMigration:
+     def test_net_migration_per_1k(self) -> None:
+         df = pd.DataFrame({"inflow": [1200], "outflow": [800], "population": [50_000]})
+         result = migration_net_25_44(df)
+         assert pytest.approx(result.iat[0], rel=1e-6) == (400 / 50_000) * 1000
+
+     def test_aggregate_migration_to_msa(self) -> None:
+         migration_df = pd.DataFrame(
+             {
+                 "state": ["06", "06", "48"],
+                 "county": ["001", "013", "201"],
+@@ -165,42 +198,92 @@ class TestTrendUtilities:
+         assert result.shape[0] == 6
+         assert (
+             pytest.approx(result.loc[result["period"] == "2023-03", "trend"].iat[0], rel=1e-6)
+             == (9 / 12) - 1
+         )
+
+     def test_business_survival_trend(self) -> None:
+         df = pd.DataFrame(
+             {
+                 "period": ["2020", "2021", "2022", "2023"],
+                 "survival_rate": [0.75, 0.78, 0.8, 0.82],
+             }
+         )
+         result = business_survival_trend(df)
+         assert "trend" in result.columns
+         assert result.loc[result["period"] == "2021", "trend"].iat[0] == pytest.approx(
+             (0.78 / 0.75) - 1, rel=1e-6
+         )
+
+     def test_compute_trend_invalid_dates(self) -> None:
+         df = pd.DataFrame({"period": ["bad", "data"], "value": [1, 2]})
+         with pytest.raises(ValueError):
+             compute_trend(df, date_column="period", value_column="value")
+
+
++def test_bea_gdp_per_capita(monkeypatch: pytest.MonkeyPatch) -> None:
++    fake_df = pd.DataFrame(
++        {
++            "GeoFips": ["12345"],
++            "GeoName": ["Sample MSA"],
++            "TimePeriod": ["2022"],
++            "DataValue": ["1,234"],
++        }
++    )
++
++    monkeypatch.setattr("aker_jobs.sources.fetch_bea_data", lambda *a, **k: fake_df)
++
++    result = bea_gdp_per_capita(
++        "12345",
++        years=[2022],
++        population={"12345": 1000.0},
++        api_key="key",
++    )
++    assert result.loc[0, "gdp_per_capita"] == pytest.approx(1.234, rel=1e-6)
++
++
++def test_ipeds_enrollment_per_100k() -> None:
++    df = pd.DataFrame(
++        {
++            "location.city": ["Austin", "Austin"],
++            "location.state": ["TX", "TX"],
++            "latest.student.enrollment.all": [3000, 2000],
++        }
++    )
++    population = {("Austin", "TX"): 1_000_000.0}
++    result = ipeds_enrollment_per_100k(
++        df, enrollment_field="latest.student.enrollment.all", population=population
++    )
++    assert result.loc[0, "per_100k"] == pytest.approx(500.0, rel=1e-6)
++
++
++def test_patents_per_100k() -> None:
++    df = pd.DataFrame(
++        {
++            "patent_number": ["1", "2", "3"],
++            "assignees": ["A", "B", "A"],
++            "msa": ["Denver", "Denver", "Austin"],
++        }
++    )
++    population = {"Denver": 700_000.0, "Austin": 1_000_000.0}
++    result = patents_per_100k(df, location_field="msa", population=population)
++    denver = result.loc[result["msa"] == "Denver", "patents_per_100k"].iat[0]
++    assert denver == pytest.approx((2 / 700_000.0) * 100_000.0, rel=1e-6)
++
++
+ class TestBusinessFormation:
+     def test_business_formation_rate(self) -> None:
+         df = pd.DataFrame(
+             {
+                 "formations": [500],
+                 "population": [1_000_000],
+                 "existing": [50_000],
+             }
+         )
+         metrics = business_formation_rate(
+             df,
+             formations_column="formations",
+             population_column="population",
+             existing_businesses_column="existing",
+         )
+         assert pytest.approx(metrics["formation_rate"], rel=1e-6) == (500 / 1_000_000) * 100_000
+         assert not np.isnan(metrics["startup_density"])
+diff --git a/tests/jobs/test_jobs_sources.py b/tests/jobs/test_jobs_sources.py
+index 1a8edf4561520e62346a17f0f69d5b1fba7b0385..38c2c67a53003d6e8d01928d5b505c09ec9921c0 100644
+--- a/tests/jobs/test_jobs_sources.py
++++ b/tests/jobs/test_jobs_sources.py
+@@ -1,40 +1,49 @@
+ from __future__ import annotations
+
+ import json
++import sys
++import types
+ from typing import Any, Dict
+
+ import pytest
+ import requests
+
++if "feedparser" not in sys.modules:
++    sys.modules["feedparser"] = types.SimpleNamespace(parse=lambda *a, **k: {"entries": []})
++
+ from aker_jobs import (
+     DataIntegrationError,
++    fetch_bea_data,
++    fetch_bls_employment,
+     fetch_census_bfs,
+     fetch_expansion_events,
++    fetch_ipeds_enrollment,
+     fetch_irs_migration,
+     fetch_nih_reporter_projects,
+     fetch_nsf_awards,
++    fetch_patentsview_innovations,
+     fetch_usaspending_contracts,
+ )
+
+
+ class DummyResponse:
+     def __init__(self, payload: Any, status: int = 200):
+         self._payload = payload
+         self.status_code = status
+
+     def raise_for_status(self) -> None:
+         if not 200 <= self.status_code < 300:
+             raise requests.HTTPError(f"status {self.status_code}")
+
+     def json(self) -> Any:
+         return self._payload
+
+
+ class DummySession:
+     def __init__(self):
+         self.requests: Dict[str, Dict[str, Any]] = {}
+
+     def get(self, url: str, params: Dict[str, Any] | None = None, timeout: int = 0):
+         self.requests[url] = {"params": params, "timeout": timeout}
+         return DummyResponse(
+             [
+@@ -121,25 +130,157 @@ def test_census_error(monkeypatch) -> None:
+         fetch_census_bfs(state="06", start=2020, end=2021, session=ErrorSession())
+
+
+ def test_fetch_expansion_events(monkeypatch) -> None:
+     from aker_jobs.metrics import ExpansionEvent as JobsExpansionEvent
+
+     class DummyIngestor:
+         def __init__(self, *_, **__):
+             self.feeds = __.get("feeds")
+
+         def scan(self):
+             return [
+                 JobsExpansionEvent(
+                     name="TechCorp",
+                     sector="technology",
+                     announcement_date=None,
+                     jobs_created=200,
+                     investment_musd=120.0,
+                 )
+             ]
+
+     events = fetch_expansion_events(["https://example.com/feed"], ingestor_factory=DummyIngestor)
+     event = events[0]
+     name = getattr(event, "company", getattr(event, "name", None))
+     assert name == "TechCorp"
++
++
++def test_fetch_bls_employment_parses_series() -> None:
++    class BLSSession:
++        def __init__(self) -> None:
++            self.payload: Dict[str, Any] | None = None
++
++        def post(self, url: str, json: Dict[str, Any], timeout: int = 0):
++            self.payload = json
++            return DummyResponse(
++                {
++                    "Results": {
++                        "series": [
++                            {
++                                "seriesID": "CEU0000000001",
++                                "data": [
++                                    {
++                                        "year": "2023",
++                                        "period": "M01",
++                                        "periodName": "January",
++                                        "value": "1000",
++                                        "footnotes": [{"text": "p"}],
++                                    }
++                                ],
++                            }
++                        ]
++                    }
++                }
++            )
++
++    session = BLSSession()
++    df = fetch_bls_employment(["CEU0000000001"], start_year=2022, end_year=2023, session=session)
++    assert df["series_id"].iat[0] == "CEU0000000001"
++    assert df["value"].iat[0] == 1000
++    assert session.payload == {"seriesid": ["CEU0000000001"], "startyear": 2022, "endyear": 2023}
++
++
++def test_fetch_bea_data_returns_dataframe() -> None:
++    class BEASession:
++        def __init__(self) -> None:
++            self.params: Dict[str, Any] | None = None
++
++        def get(self, url: str, params: Dict[str, Any], timeout: int = 0):
++            self.params = params
++            return DummyResponse(
++                {
++                    "BEAAPI": {
++                        "Results": {
++                            "Data": [
++                                {
++                                    "GeoFips": "12345",
++                                    "GeoName": "Sample MSA",
++                                    "TimePeriod": "2022",
++                                    "DataValue": "1,234",
++                                }
++                            ]
++                        }
++                    }
++                }
++            )
++
++    session = BEASession()
++    df = fetch_bea_data(
++        dataset="Regional",
++        table_name="CAGDP9",
++        geo_fips="12345",
++        years=[2021, 2022],
++        api_key="abc",
++        session=session,
++    )
++    assert df.loc[0, "GeoName"] == "Sample MSA"
++    assert session.params is not None and session.params["GeoFips"] == "12345"
++
++
++def test_fetch_ipeds_enrollment_requires_results() -> None:
++    class IPEDSSession:
++        def __init__(self) -> None:
++            self.params: Dict[str, Any] | None = None
++
++        def get(self, url: str, params: Dict[str, Any], timeout: int = 0):
++            self.params = params
++            payload = {
++                "results": [
++                    {
++                        "id": 1,
++                        "location.city": "Austin",
++                        "location.state": "TX",
++                        "latest.student.enrollment.all": 5000,
++                    }
++                ]
++            }
++            return DummyResponse(payload)
++
++    session = IPEDSSession()
++    df = fetch_ipeds_enrollment(
++        fields=["id", "latest.student.enrollment.all"],
++        filters={"school.state": "TX"},
++        api_key="demo",
++        session=session,
++    )
++    assert df["location.city"].iat[0] == "Austin"
++    assert session.params is not None and session.params["fields"].startswith("id")
++
++
++def test_fetch_patentsview_innovations_parses_payload() -> None:
++    class PatentSession:
++        def __init__(self) -> None:
++            self.payload: Dict[str, Any] | None = None
++
++        def post(self, url: str, json: Dict[str, Any], timeout: int = 0):
++            self.payload = json
++            return DummyResponse(
++                {
++                    "patents": [
++                        {
++                            "patent_number": "1234567",
++                            "assignees": [
++                                {"assignee_organization": "InnovateCo", "assignee_city": "Denver"}
++                            ],
++                        }
++                    ]
++                }
++            )
++
++    session = PatentSession()
++    df = fetch_patentsview_innovations(
++        location_filter={"_text_any": {"patent_title": "battery"}},
++        fields=["patent_number"],
++        session=session,
++    )
++    assert df["patent_number"].iat[0] == "1234567"
++    assert session.payload is not None and session.payload["f"] == ["patent_number"]

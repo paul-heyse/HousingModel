@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import math
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -75,3 +77,16 @@ class TestRobustMinMax:
     def test_integration_with_array_like(self) -> None:
         result = robust_minmax((1, 2, 3, 4))
         assert np.all(np.diff(result) >= 0)
+
+
+class TestGoldenMaster:
+    def test_snapshot_matches_expected_values(self) -> None:
+        snapshot_path = Path(__file__).parent.parent / "data" / "robust_minmax_snapshot.json"
+        payload = json.loads(snapshot_path.read_text())
+        values = np.array(payload["input"], dtype=float)
+
+        default = robust_minmax(values)
+        tight = robust_minmax(values, p_low=0.1, p_high=0.9)
+
+        np.testing.assert_allclose(default, payload["expected"]["default"], rtol=1e-9, atol=1e-9)
+        np.testing.assert_allclose(tight, payload["expected"]["tight"], rtol=1e-9, atol=1e-9)

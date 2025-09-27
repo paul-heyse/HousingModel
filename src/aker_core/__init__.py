@@ -47,6 +47,7 @@ from .validation import (
 
 try:
     from .validation.supply_validation import SupplyValidationSuite, run_supply_validation_cli
+from .integration.market_analysis import MarketAnalysisPipeline, analyze_market, analyze_multiple_markets, get_market_rankings, MarketAnalysisResult
 except ModuleNotFoundError:  # pragma: no cover - optional validation component
     SupplyValidationSuite = None
     run_supply_validation_cli = None
@@ -127,6 +128,11 @@ __all__ = [
     "validate_supply_data_quality",
     "SupplyPerformanceOptimizer",
     "optimize_supply_calculations",
+    "MarketAnalysisPipeline",
+    "analyze_market",
+    "analyze_multiple_markets",
+    "get_market_rankings",
+    "MarketAnalysisResult",
 ]
 
 if SupplyValidationSuite is not None and run_supply_validation_cli is not None:

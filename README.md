@@ -55,6 +55,41 @@ downstream exports.
 > throughput checks, run `pytest tests/perf/test_market_scoring_perf.py -q` to record timing metadata
 > for a 250-market batch refresh.
 
+Normalising pillar metrics in bulk is supported via `aker_core.markets.pipeline`; run
+`run_scoring_pipeline(raw_metrics)` to perform the end-to-end
+normalisation → pillar 0–5 conversion → weighted composite score, or import individual helpers such as
+`normalise_metrics` and `composite_scores` for customised flows.
+
+Typical usage::
+
+    from aker_core.markets.pipeline import run_scoring_pipeline
+
+    raw_metrics = {
+        "supply": [12.5, 18.0, 27.4, 31.6],
+        "jobs": [42.0, 55.2, 78.9, 90.0],
+        "urban": [68.0, 72.5, 83.0, 91.0],
+        "outdoor": [58.0, 64.0, 70.0, 80.0],
+    }
+    result = run_scoring_pipeline(raw_metrics)
+    print(result.composite_0_5)
+
+**Troubleshooting**
+
+- ``RobustNormalizationError: Input array is empty`` – ensure each metric list contains at least one
+  finite observation before calling the pipeline.
+- ``percentiles must satisfy 0 <= p_low < p_high <= 1`` – check custom percentile arguments; the
+  defaults ``p_low=0.05`` / ``p_high=0.95`` usually provide good winsorisation.
+- Outputs include ``NaN`` – the input contained ``NaN`` or infinite values; clean the source data or
+  fill missing values before normalisation.
+
+**Performance tips**
+
+- The implementation is vectorised; pass NumPy arrays (or structures convertible via ``np.asarray``)
+  for best throughput.
+- For very large batches (>500k rows) reuse a seeded ``np.random.Generator`` to create synthetic test
+  data when profiling. The `tests/perf/test_normalization_perf.py` benchmark ensures a 500k-row run
+  completes within ~1s on the reference hardware.
+
 ## Structured logging & metrics
 
 Use `aker_core.logging.get_logger(__name__)` to emit JSON logs via `structlog`:
