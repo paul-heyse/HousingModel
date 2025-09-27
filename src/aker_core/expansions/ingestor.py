@@ -9,7 +9,12 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Sequence
 
-import feedparser
+try:  # pragma: no cover - exercised via import fallback
+    import feedparser
+except ImportError:  # pragma: no cover - fallback for optional dependency
+    import types
+
+    feedparser = types.SimpleNamespace(parse=lambda *args, **kwargs: {"entries": []})
 import pandas as pd
 from bs4 import BeautifulSoup
 

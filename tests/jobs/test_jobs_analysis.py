@@ -1,11 +1,19 @@
 from __future__ import annotations
 
+import sys
+import types
+
 import numpy as np
 import pandas as pd
 import pytest
 
+if "feedparser" not in sys.modules:
+    sys.modules["feedparser"] = types.SimpleNamespace(parse=lambda *a, **k: {"entries": []})
+
 from aker_jobs import (
+    bea_gdp_per_capita,
     aggregate_migration_to_msa,
+    build_location_quotients_from_bls,
     awards_per_100k,
     awards_trend,
     business_formation_rate,
@@ -13,8 +21,10 @@ from aker_jobs import (
     cagr,
     classify_expansion,
     compute_trend,
+    ipeds_enrollment_per_100k,
     location_quotient,
     migration_net_25_44,
+    patents_per_100k,
     summarise_expansions,
 )
 
@@ -52,6 +62,29 @@ class TestLocationQuotient:
         )
         with pytest.raises(ValueError):
             location_quotient(df, population_column="population")
+
+    def test_build_location_quotients_from_bls(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        fake_df = pd.DataFrame(
+            {
+                "series_id": ["LOCAL", "NAT"],
+                "year": [2023, 2023],
+                "period": ["M12", "M12"],
+                "period_name": ["December", "December"],
+                "value": [2000, 100_000],
+                "footnotes": [[], []],
+            }
+        )
+
+        monkeypatch.setattr("aker_jobs.sources.fetch_bls_employment", lambda *a, **k: fake_df)
+
+        result = build_location_quotients_from_bls(
+            {"tech": {"local": "LOCAL", "national": "NAT"}},
+            start_year=2021,
+            end_year=2023,
+            population={"tech": 500_000},
+        )
+        assert pytest.approx(result.loc[0, "lq"], rel=1e-6) == (2000 / 2000) / (100_000 / 100_000)
+        assert result.loc[0, "jobs_per_100k"] == pytest.approx(400.0, rel=1e-6)
 
 
 class TestTimeSeries:
@@ -185,6 +218,56 @@ class TestTrendUtilities:
         df = pd.DataFrame({"period": ["bad", "data"], "value": [1, 2]})
         with pytest.raises(ValueError):
             compute_trend(df, date_column="period", value_column="value")
+
+
+def test_bea_gdp_per_capita(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_df = pd.DataFrame(
+        {
+            "GeoFips": ["12345"],
+            "GeoName": ["Sample MSA"],
+            "TimePeriod": ["2022"],
+            "DataValue": ["1,234"],
+        }
+    )
+
+    monkeypatch.setattr("aker_jobs.sources.fetch_bea_data", lambda *a, **k: fake_df)
+
+    result = bea_gdp_per_capita(
+        "12345",
+        years=[2022],
+        population={"12345": 1000.0},
+        api_key="key",
+    )
+    assert result.loc[0, "gdp_per_capita"] == pytest.approx(1.234, rel=1e-6)
+
+
+def test_ipeds_enrollment_per_100k() -> None:
+    df = pd.DataFrame(
+        {
+            "location.city": ["Austin", "Austin"],
+            "location.state": ["TX", "TX"],
+            "latest.student.enrollment.all": [3000, 2000],
+        }
+    )
+    population = {("Austin", "TX"): 1_000_000.0}
+    result = ipeds_enrollment_per_100k(
+        df, enrollment_field="latest.student.enrollment.all", population=population
+    )
+    assert result.loc[0, "per_100k"] == pytest.approx(500.0, rel=1e-6)
+
+
+def test_patents_per_100k() -> None:
+    df = pd.DataFrame(
+        {
+            "patent_number": ["1", "2", "3"],
+            "assignees": ["A", "B", "A"],
+            "msa": ["Denver", "Denver", "Austin"],
+        }
+    )
+    population = {"Denver": 700_000.0, "Austin": 1_000_000.0}
+    result = patents_per_100k(df, location_field="msa", population=population)
+    denver = result.loc[result["msa"] == "Denver", "patents_per_100k"].iat[0]
+    assert denver == pytest.approx((2 / 700_000.0) * 100_000.0, rel=1e-6)
 
 
 class TestBusinessFormation:

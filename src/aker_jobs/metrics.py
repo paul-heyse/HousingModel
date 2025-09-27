@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
-from typing import Iterable, Mapping, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
@@ -241,6 +241,28 @@ def summarise_expansions(events: Iterable[ExpansionEvent]) -> pd.Series:
     return pd.Series(summary)
 
 
+def _latest_bls_value(series: pd.DataFrame, series_id: str) -> float:
+    """Return the most recent value for a BLS series."""
+
+    subset = series[series["series_id"] == series_id]
+    if subset.empty:
+        raise KeyError(f"Series '{series_id}' not present in BLS payload")
+
+    def _period_key(row: pd.Series) -> tuple[int, int]:
+        period = str(row.get("period", ""))
+        month = 0
+        if period.startswith("M") and len(period) == 3:
+            month = int(period[1:])
+        return (int(row.get("year", 0)), month)
+
+    ordered = subset.assign(_sort=subset.apply(_period_key, axis=1)).sort_values("_sort", ascending=False)
+    latest_row = ordered.iloc[0]
+    value = latest_row.get("value")
+    if pd.isna(value):
+        raise ValueError(f"Latest value for series '{series_id}' is missing")
+    return float(value)
+
+
 def awards_per_100k(
     awards: pd.DataFrame,
     *,
@@ -266,6 +288,65 @@ def awards_per_100k(
         aggregated[amount_column] / aggregated[population_column]
     ) * 100_000.0
     return aggregated.reset_index()
+
+
+def build_location_quotients_from_bls(
+    series_map: Mapping[str, Mapping[str, str]],
+    *,
+    start_year: int,
+    end_year: int,
+    population: Mapping[str, float] | float,
+    api_key: str | None = None,
+    session: Any | None = None,
+) -> pd.DataFrame:
+    """Fetch BLS employment data and compute sector-level location quotients."""
+
+    from . import sources
+
+    if not series_map:
+        raise ValueError("series_map must include at least one sector")
+
+    all_series: list[str] = []
+    for config in series_map.values():
+        try:
+            all_series.extend([config["local"], config["national"]])
+        except KeyError as exc:
+            raise KeyError("Series config must include 'local' and 'national'") from exc
+
+    bls_df = sources.fetch_bls_employment(
+        all_series,
+        start_year=start_year,
+        end_year=end_year,
+        api_key=api_key,
+        session=session,
+    )
+
+    records: list[dict[str, float | str]] = []
+    for sector, config in series_map.items():
+        local_jobs = _latest_bls_value(bls_df, config["local"])
+        national_jobs = _latest_bls_value(bls_df, config["national"])
+        record: dict[str, float | str] = {
+            "sector": sector,
+            "local_jobs": local_jobs,
+            "national_jobs": national_jobs,
+        }
+        if isinstance(population, Mapping):
+            pop_value = population.get(sector)
+            if pop_value is None:
+                raise KeyError(f"Population missing for sector '{sector}'")
+            record["population"] = float(pop_value)
+        else:
+            record["population"] = float(population)
+        records.append(record)
+
+    prepared = pd.DataFrame(records)
+    return location_quotient(
+        prepared,
+        sector_column="sector",
+        local_jobs_column="local_jobs",
+        national_jobs_column="national_jobs",
+        population_column="population",
+    )
 
 
 def business_formation_rate(
@@ -305,6 +386,41 @@ def business_formation_rate(
             "startup_density": float(np.nanmean(density)),
         }
     )
+
+
+def bea_gdp_per_capita(
+    geo_fips: str,
+    *,
+    years: Sequence[int],
+    population: Mapping[str, float],
+    api_key: str,
+    frequency: str = "A",
+    session: Any | None = None,
+) -> pd.DataFrame:
+    """Compute GDP per capita using BEA regional economic accounts."""
+
+    from . import sources
+
+    raw = sources.fetch_bea_data(
+        dataset="Regional",
+        table_name="CAGDP9",
+        geo_fips=geo_fips,
+        years=years,
+        frequency=frequency,
+        api_key=api_key,
+        session=session,
+    )
+
+    df = raw.copy()
+    df["GeoFips"] = df["GeoFips"].str.strip()
+    df["DataValue"] = pd.to_numeric(df["DataValue"].str.replace(",", ""), errors="coerce")
+    df = df[df["DataValue"].notna()]
+    df["population"] = df["GeoFips"].map(population).astype(float)
+    if df["population"].isna().any():
+        missing = df[df["population"].isna()]["GeoFips"].unique().tolist()
+        raise KeyError(f"Population missing for BEA GeoFips: {missing}")
+    df["gdp_per_capita"] = df["DataValue"] / df["population"]
+    return df[["GeoFips", "GeoName", "TimePeriod", "DataValue", "population", "gdp_per_capita"]]
 
 
 def _summarise_time_series(
@@ -385,3 +501,62 @@ def business_survival_trend(
     return compute_trend(
         survival, date_column=date_column, value_column=survival_column, freq=freq, periods=periods
     )
+
+
+def ipeds_enrollment_per_100k(
+    ipeds_df: pd.DataFrame,
+    *,
+    enrollment_field: str,
+    population: Mapping[tuple[str, str], float],
+) -> pd.DataFrame:
+    """Aggregate IPEDS enrollment by city/state and normalise per 100k residents."""
+
+    if enrollment_field not in ipeds_df.columns:
+        raise KeyError(f"Enrollment field '{enrollment_field}' not present")
+
+    df = ipeds_df.copy()
+    df[enrollment_field] = pd.to_numeric(df[enrollment_field], errors="coerce")
+    df = df.dropna(subset=[enrollment_field])
+    grouped = df.groupby(["location.city", "location.state"])[enrollment_field].sum()
+    records: list[dict[str, float | str]] = []
+    for (city, state), value in grouped.items():
+        population_key = (city, state)
+        pop = population.get(population_key)
+        if pop is None:
+            raise KeyError(f"Population missing for {population_key}")
+        records.append(
+            {
+                "city": city,
+                "state": state,
+                enrollment_field: float(value),
+                "per_100k": float(value) / float(pop) * 100_000.0,
+            }
+        )
+    return pd.DataFrame(records)
+
+
+def patents_per_100k(
+    patents_df: pd.DataFrame,
+    *,
+    location_field: str,
+    population: Mapping[str, float],
+) -> pd.DataFrame:
+    """Calculate patents per 100k residents for a PatentsView result set."""
+
+    if location_field not in patents_df.columns:
+        raise KeyError(f"Location field '{location_field}' not present in patents data")
+
+    grouped = patents_df.groupby(location_field)["patent_number"].count()
+    records: list[dict[str, float | str]] = []
+    for location, count in grouped.items():
+        pop = population.get(location)
+        if pop is None:
+            raise KeyError(f"Population missing for '{location}'")
+        records.append(
+            {
+                location_field: location,
+                "patent_count": float(count),
+                "patents_per_100k": float(count) / float(pop) * 100_000.0,
+            }
+        )
+    return pd.DataFrame(records)

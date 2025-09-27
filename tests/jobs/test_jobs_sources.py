@@ -1,18 +1,27 @@
 from __future__ import annotations
 
 import json
+import sys
+import types
 from typing import Any, Dict
 
 import pytest
 import requests
 
+if "feedparser" not in sys.modules:
+    sys.modules["feedparser"] = types.SimpleNamespace(parse=lambda *a, **k: {"entries": []})
+
 from aker_jobs import (
     DataIntegrationError,
+    fetch_bea_data,
+    fetch_bls_employment,
     fetch_census_bfs,
     fetch_expansion_events,
+    fetch_ipeds_enrollment,
     fetch_irs_migration,
     fetch_nih_reporter_projects,
     fetch_nsf_awards,
+    fetch_patentsview_innovations,
     fetch_usaspending_contracts,
 )
 
@@ -143,3 +152,135 @@ def test_fetch_expansion_events(monkeypatch) -> None:
     event = events[0]
     name = getattr(event, "company", getattr(event, "name", None))
     assert name == "TechCorp"
+
+
+def test_fetch_bls_employment_parses_series() -> None:
+    class BLSSession:
+        def __init__(self) -> None:
+            self.payload: Dict[str, Any] | None = None
+
+        def post(self, url: str, json: Dict[str, Any], timeout: int = 0):
+            self.payload = json
+            return DummyResponse(
+                {
+                    "Results": {
+                        "series": [
+                            {
+                                "seriesID": "CEU0000000001",
+                                "data": [
+                                    {
+                                        "year": "2023",
+                                        "period": "M01",
+                                        "periodName": "January",
+                                        "value": "1000",
+                                        "footnotes": [{"text": "p"}],
+                                    }
+                                ],
+                            }
+                        ]
+                    }
+                }
+            )
+
+    session = BLSSession()
+    df = fetch_bls_employment(["CEU0000000001"], start_year=2022, end_year=2023, session=session)
+    assert df["series_id"].iat[0] == "CEU0000000001"
+    assert df["value"].iat[0] == 1000
+    assert session.payload == {"seriesid": ["CEU0000000001"], "startyear": 2022, "endyear": 2023}
+
+
+def test_fetch_bea_data_returns_dataframe() -> None:
+    class BEASession:
+        def __init__(self) -> None:
+            self.params: Dict[str, Any] | None = None
+
+        def get(self, url: str, params: Dict[str, Any], timeout: int = 0):
+            self.params = params
+            return DummyResponse(
+                {
+                    "BEAAPI": {
+                        "Results": {
+                            "Data": [
+                                {
+                                    "GeoFips": "12345",
+                                    "GeoName": "Sample MSA",
+                                    "TimePeriod": "2022",
+                                    "DataValue": "1,234",
+                                }
+                            ]
+                        }
+                    }
+                }
+            )
+
+    session = BEASession()
+    df = fetch_bea_data(
+        dataset="Regional",
+        table_name="CAGDP9",
+        geo_fips="12345",
+        years=[2021, 2022],
+        api_key="abc",
+        session=session,
+    )
+    assert df.loc[0, "GeoName"] == "Sample MSA"
+    assert session.params is not None and session.params["GeoFips"] == "12345"
+
+
+def test_fetch_ipeds_enrollment_requires_results() -> None:
+    class IPEDSSession:
+        def __init__(self) -> None:
+            self.params: Dict[str, Any] | None = None
+
+        def get(self, url: str, params: Dict[str, Any], timeout: int = 0):
+            self.params = params
+            payload = {
+                "results": [
+                    {
+                        "id": 1,
+                        "location.city": "Austin",
+                        "location.state": "TX",
+                        "latest.student.enrollment.all": 5000,
+                    }
+                ]
+            }
+            return DummyResponse(payload)
+
+    session = IPEDSSession()
+    df = fetch_ipeds_enrollment(
+        fields=["id", "latest.student.enrollment.all"],
+        filters={"school.state": "TX"},
+        api_key="demo",
+        session=session,
+    )
+    assert df["location.city"].iat[0] == "Austin"
+    assert session.params is not None and session.params["fields"].startswith("id")
+
+
+def test_fetch_patentsview_innovations_parses_payload() -> None:
+    class PatentSession:
+        def __init__(self) -> None:
+            self.payload: Dict[str, Any] | None = None
+
+        def post(self, url: str, json: Dict[str, Any], timeout: int = 0):
+            self.payload = json
+            return DummyResponse(
+                {
+                    "patents": [
+                        {
+                            "patent_number": "1234567",
+                            "assignees": [
+                                {"assignee_organization": "InnovateCo", "assignee_city": "Denver"}
+                            ],
+                        }
+                    ]
+                }
+            )
+
+    session = PatentSession()
+    df = fetch_patentsview_innovations(
+        location_filter={"_text_any": {"patent_title": "battery"}},
+        fields=["patent_number"],
+        session=session,
+    )
+    assert df["patent_number"].iat[0] == "1234567"
+    assert session.payload is not None and session.payload["f"] == ["patent_number"]
