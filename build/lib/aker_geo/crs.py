@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
+from typing import Optional, Union
+
 import geopandas as gpd
 import pandas as pd
 from pyproj import CRS, Transformer
 from shapely.geometry import shape
 from shapely.ops import transform as shapely_transform
-from typing import Optional, Union
 
 # Standard CRS definitions
 STORAGE_CRS = "EPSG:4326"  # WGS84 - Geographic coordinates for storage
-UI_CRS = "EPSG:3857"       # Web Mercator - Projected coordinates for UI
+UI_CRS = "EPSG:3857"  # Web Mercator - Projected coordinates for UI
 
 
 def to_ui(gdf: Union[gpd.GeoDataFrame, pd.DataFrame]) -> gpd.GeoDataFrame:
@@ -28,7 +29,7 @@ def to_ui(gdf: Union[gpd.GeoDataFrame, pd.DataFrame]) -> gpd.GeoDataFrame:
     """
     if not isinstance(gdf, gpd.GeoDataFrame):
         # Convert to GeoDataFrame if needed
-        if 'geometry' not in gdf.columns:
+        if "geometry" not in gdf.columns:
             raise ValueError("DataFrame must have 'geometry' column or be a GeoDataFrame")
 
         gdf = gpd.GeoDataFrame(gdf)
@@ -61,7 +62,7 @@ def to_storage(gdf: Union[gpd.GeoDataFrame, pd.DataFrame]) -> gpd.GeoDataFrame:
     """
     if not isinstance(gdf, gpd.GeoDataFrame):
         # Convert to GeoDataFrame if needed
-        if 'geometry' not in gdf.columns:
+        if "geometry" not in gdf.columns:
             raise ValueError("DataFrame must have 'geometry' column or be a GeoDataFrame")
 
         gdf = gpd.GeoDataFrame(gdf)
@@ -98,13 +99,9 @@ def get_crs_info(crs: Union[str, CRS]) -> Dict[str, any]:
         "coordinate_system": crs.coordinate_system.name if crs.coordinate_system else None,
         "area_of_use": str(crs.area_of_use) if crs.area_of_use else None,
         "axis_info": [
-            {
-                "name": axis.name,
-                "direction": axis.direction,
-                "unit_name": axis.unit_name
-            }
+            {"name": axis.name, "direction": axis.direction, "unit_name": axis.unit_name}
             for axis in crs.axis_info
-        ]
+        ],
     }
 
 
@@ -162,7 +159,7 @@ def detect_crs_from_geometry(geometry: any) -> Optional[str]:
         Detected CRS string or None if detection fails
     """
     try:
-        if geometry is None or not hasattr(geometry, 'bounds'):
+        if geometry is None or not hasattr(geometry, "bounds"):
             return None
 
         bounds = geometry.bounds
@@ -173,8 +170,12 @@ def detect_crs_from_geometry(geometry: any) -> Optional[str]:
             # Geographic coordinates typically have:
             # - Longitude between -180 and 180
             # - Latitude between -90 and 90
-            if (-180 <= min_lon <= 180 and -180 <= max_lon <= 180 and
-                -90 <= min_lat <= 90 and -90 <= max_lat <= 90):
+            if (
+                -180 <= min_lon <= 180
+                and -180 <= max_lon <= 180
+                and -90 <= min_lat <= 90
+                and -90 <= max_lat <= 90
+            ):
                 return STORAGE_CRS  # EPSG:4326
             else:
                 # Could be projected coordinates

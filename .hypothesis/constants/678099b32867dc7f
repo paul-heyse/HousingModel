@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_core/expansions/anomaly.py
+# hypothesis_version: 6.140.2
+
+[3.0, 'AnomalyAssessment', 'AnomalyDetector', 'industry', 'investment_amount', 'jobs_created', 'state']

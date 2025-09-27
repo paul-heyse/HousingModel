@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_geo/isochrones/engine.py
+# hypothesis_version: 6.140.2
+
+[4.8, 15.0, 30.0, 1000, 'EPSG:4326', 'MultiPoint', 'Point', 'bike', 'crs', 'drive', 'error', 'graph', 'inf', 'isochrone', 'length', 'max_distance_km', 'max_time_minutes', 'mode', 'node_id', 'origin_point', 'u', 'v', 'walk', 'x', 'y']

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import importlib
 from typing import Dict, Optional, Type
 
 from aker_core.logging import get_logger
@@ -27,6 +26,7 @@ class ConnectorRegistry:
         try:
             # Try to import and register NYC connector
             from .connectors.nyc import NYCConnector
+
             self.register_connector("New York", "NY", NYCConnector)
         except ImportError:
             self.logger.warning("NYC connector not available")
@@ -34,15 +34,13 @@ class ConnectorRegistry:
         try:
             # Try to import and register LA connector
             from .connectors.la import LAConnector
+
             self.register_connector("Los Angeles", "CA", LAConnector)
         except ImportError:
             self.logger.warning("LA connector not available")
 
     def register_connector(
-        self,
-        city: str,
-        state: str,
-        connector_class: Type[PermitsConnector]
+        self, city: str, state: str, connector_class: Type[PermitsConnector]
     ) -> None:
         """Register a connector for a city/state combination.
 
@@ -56,10 +54,7 @@ class ConnectorRegistry:
         self.logger.info(f"Registered connector for {city}, {state}")
 
     def get_connector(
-        self,
-        city: str,
-        state: str,
-        run_context: Optional[RunContext] = None
+        self, city: str, state: str, run_context: Optional[RunContext] = None
     ) -> PermitsConnector:
         """Get connector for a city/state combination.
 
@@ -112,9 +107,7 @@ class ConnectorRegistry:
         return f"{city}|{state}"
 
     def register_connector_by_pattern(
-        self,
-        pattern: str,
-        connector_class: Type[PermitsConnector]
+        self, pattern: str, connector_class: Type[PermitsConnector]
     ) -> None:
         """Register a connector for cities matching a pattern.
 
@@ -139,20 +132,14 @@ def get_registry() -> ConnectorRegistry:
     return _registry
 
 
-def register_connector(
-    city: str,
-    state: str,
-    connector_class: Type[PermitsConnector]
-) -> None:
+def register_connector(city: str, state: str, connector_class: Type[PermitsConnector]) -> None:
     """Register a connector for a city/state combination."""
     registry = get_registry()
     registry.register_connector(city, state, connector_class)
 
 
 def get_connector(
-    city: str,
-    state: str,
-    run_context: Optional[RunContext] = None
+    city: str, state: str, run_context: Optional[RunContext] = None
 ) -> PermitsConnector:
     """Get connector for a city/state combination."""
     registry = get_registry()

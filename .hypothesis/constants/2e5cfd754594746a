@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_geo/validate.py
+# hypothesis_version: 6.140.2
+
+[0.0, 'Geometry is None', 'LineString', 'MultiLineString', 'MultiPoint', 'MultiPolygon', 'Point', 'Polygon', 'corrected_geometries', 'correction_rate', 'crs_compatible', 'crs_detected', 'crs_name', 'crs_validation', 'detected_crs', 'empty_geometries', 'error', 'error_type', 'geometry', 'geometry_type', 'geometry_types', 'geometry_validation', 'has_bounds', 'has_crs', 'has_mixed_types', 'has_srid', 'height', 'index', 'invalid_geometries', 'invalid_geometry', 'is_storage_crs', 'is_ui_crs', 'make_valid', 'max_x', 'max_y', 'message', 'min_x', 'min_y', 'null_geometries', 'null_geometry', 'postgis_compatible', 'recommended_crs', 'spatial_bounds', 'srid_value', 'summary', 'total_geometries', 'unsupported_types', 'valid_geometries', 'validation_errors', 'validity_rate', 'width']

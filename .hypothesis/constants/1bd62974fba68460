@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_geo/crs.py
+# hypothesis_version: 6.140.2
+
+[-180, 180, 'EPSG:3857', 'EPSG:4326', 'area_of_use', 'axis_info', 'bounds', 'coordinate_system', 'datum', 'direction', 'geometry', 'name', 'unit_name']

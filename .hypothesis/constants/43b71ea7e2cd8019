@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_core/supply/performance.py
+# hypothesis_version: 6.140.2
+
+[0.01, 0.7, 4.5, 25.0, 45.0, 100, 128, 1000, 1024, 3600, 1000000, 'balanced', 'base_overhead_mb', 'batch_size', 'cache_results', 'chunk_size', 'data_size', 'elasticity', 'error', 'households', 'hud_data', 'lease_data', 'leaseup', 'leaseup_days', 'memory', 'memory_estimate', 'msa_id', 'per_market_mb', 'permits', 'processed', 'recommendations', 'speed', 'status', 'total_estimated_mb', 'unknown', 'use_parallel', 'vacancy']

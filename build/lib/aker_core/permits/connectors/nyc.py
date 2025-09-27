@@ -6,7 +6,6 @@ from datetime import date
 from typing import List, Optional
 
 from aker_core.cache import fetch
-from aker_core.logging import get_logger
 
 from ..connector import PermitsConnector
 from ..models import PermitCollectionResult, PermitRecord, PermitStatus, PermitType
@@ -79,7 +78,9 @@ class NYCConnector(PermitsConnector):
             # Normalize to our standard format
             permits = self.normalize_permit_data(raw_data)
 
-            self._log_collection_complete(PermitCollectionResult(permits, {"records_fetched": len(raw_data)}))
+            self._log_collection_complete(
+                PermitCollectionResult(permits, {"records_fetched": len(raw_data)})
+            )
 
             return PermitCollectionResult(permits, {"records_fetched": len(raw_data)})
 

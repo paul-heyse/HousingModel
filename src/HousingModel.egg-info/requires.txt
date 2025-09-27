@@ -2,7 +2,7 @@ pydantic
 pydantic-settings
 SQLAlchemy
 alembic
-geoalchemy
+geoalchemy2
 pyarrow
 duckdb
 great-expectations
@@ -14,3 +14,6 @@ prefect
 geopandas
 shapely
 pyproj
+feedparser
+beautifulsoup4
+pandas

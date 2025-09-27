@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import pandas as pd
-from prefect import flow, task
 
 from aker_core.config import get_settings
 from aker_core.validation import validate_data_quality
 from aker_data.lake import DataLake
+
 from .base import ETLFlow, etl_task, timed_flow, with_run_context
 
 
@@ -35,21 +35,19 @@ class MarketScoringFlow(ETLFlow):
         # and could use ML models from the plugin registry
 
         # Calculate market score based on income and population
-        df['market_score'] = (
-            df['b19013_001e'] / df['b19013_001e'].max() * 0.4 +  # Income factor (40%)
-            df['b01003_001e'] / df['b01003_001e'].max() * 0.6    # Population factor (60%)
+        df["market_score"] = (
+            df["b19013_001e"] / df["b19013_001e"].max() * 0.4  # Income factor (40%)
+            + df["b01003_001e"] / df["b01003_001e"].max() * 0.6  # Population factor (60%)
         ) * 100  # Scale to 0-100
 
         # Categorize markets
-        df['market_tier'] = pd.cut(
-            df['market_score'],
-            bins=[0, 25, 50, 75, 100],
-            labels=['D', 'C', 'B', 'A']
+        df["market_tier"] = pd.cut(
+            df["market_score"], bins=[0, 25, 50, 75, 100], labels=["D", "C", "B", "A"]
         )
 
         # Add scoring metadata
-        df['scoring_model'] = 'simple_income_population_v1'
-        df['scored_at'] = pd.Timestamp.now()
+        df["scoring_model"] = "simple_income_population_v1"
+        df["scored_at"] = pd.Timestamp.now()
 
         self.logger.info(f"Applied scoring to {len(df)} markets")
         return df
@@ -61,10 +59,7 @@ class MarketScoringFlow(ETLFlow):
 
         # Store scoring results
         result_path = lake.write(
-            df,
-            dataset="market_scores",
-            as_of=as_of,
-            partition_by=["market_tier"]
+            df, dataset="market_scores", as_of=as_of, partition_by=["market_tier"]
         )
 
         self.logger.info(f"Stored market scores to {result_path}")
@@ -84,17 +79,20 @@ class MarketScoringFlow(ETLFlow):
         # Export summary statistics
         summary = {
             "total_markets": len(df),
-            "avg_score": df['market_score'].mean(),
-            "score_distribution": df['market_tier'].value_counts().to_dict(),
-            "top_markets": df.nlargest(10, 'market_score')[['name', 'market_score', 'market_tier']].to_dict('records'),
+            "avg_score": df["market_score"].mean(),
+            "score_distribution": df["market_tier"].value_counts().to_dict(),
+            "top_markets": df.nlargest(10, "market_score")[
+                ["name", "market_score", "market_tier"]
+            ].to_dict("records"),
             "exported_at": pd.Timestamp.now().isoformat(),
-            "as_of": as_of
+            "as_of": as_of,
         }
 
         # Store summary in JSON format
         summary_path = f"./exports/market_scores_summary_{as_of}.json"
         import json
-        with open(summary_path, 'w') as f:
+
+        with open(summary_path, "w") as f:
             json.dump(summary, f, indent=2, default=str)
         exports["summary_json"] = summary_path
 
@@ -109,10 +107,12 @@ class MarketScoringFlow(ETLFlow):
             df=df,
             suite_name="market_data_validation",
             data_asset_name="market_scoring_data",
-            fail_on_error=True
+            fail_on_error=True,
         )
 
-        self.logger.info(f"Great Expectations validation passed: {validation_result['successful_expectations']}/{validation_result['total_expectations']} expectations")
+        self.logger.info(
+            f"Great Expectations validation passed: {validation_result['successful_expectations']}/{validation_result['total_expectations']} expectations"
+        )
         return True
 
 
@@ -129,6 +129,7 @@ def score_all_markets(as_of: str = None) -> dict:
     """
     if as_of is None:
         from datetime import datetime
+
         as_of = datetime.now().strftime("%Y-%m")
 
     flow = MarketScoringFlow()
@@ -147,8 +148,8 @@ def score_all_markets(as_of: str = None) -> dict:
         flow.log_complete(
             0.0,
             markets_scored=len(scored_data),
-            avg_score=scored_data['market_score'].mean(),
-            as_of=as_of
+            avg_score=scored_data["market_score"].mean(),
+            as_of=as_of,
         )
 
         return {
@@ -156,9 +157,9 @@ def score_all_markets(as_of: str = None) -> dict:
             "exports": exports,
             "summary": {
                 "markets_scored": len(scored_data),
-                "avg_score": scored_data['market_score'].mean(),
-                "tier_distribution": scored_data['market_tier'].value_counts().to_dict()
-            }
+                "avg_score": scored_data["market_score"].mean(),
+                "tier_distribution": scored_data["market_tier"].value_counts().to_dict(),
+            },
         }
 
     except Exception as e:

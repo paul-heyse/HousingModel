@@ -17,7 +17,7 @@ from .validation import (
 
 # Import geospatial utilities
 try:
-    from aker_geo import to_storage, to_ui, validate_geometry, validate_crs
+    from aker_geo import to_storage, to_ui, validate_crs, validate_geometry
 except ImportError:
     # Geospatial dependencies not available
     to_storage = None

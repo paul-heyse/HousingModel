@@ -13,7 +13,13 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, Iterable, Literal
 
-from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, PrivateAttr, SecretStr
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, SecretStr
+
+try:
+    from pydantic import AnyHttpUrl
+except ImportError:
+    # Fallback for older pydantic versions
+    from pydantic.networks import HttpUrl as AnyHttpUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 Source = Literal["env", "dotenv", "default"]

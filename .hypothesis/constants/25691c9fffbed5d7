@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_core/connectors/supply_data.py
+# hypothesis_version: 6.140.2
+
+[-0.2, 0.0, 0.01, 0.1, 1.0, 2.0, 5.0, 15.0, 100, 120, 1000, 1800, 2010, 3600, 50000, '%Y-%m-%d', 'Census', 'Census_ACS', 'HUD', 'LeaseData', 'Local_Permit_Portal', 'PermitPortals', 'apartment', 'condo', 'data_completeness', 'data_quality', 'data_years', 'days_on_market', 'errors', 'extraction_timestamp', 'failed_loads', 'geography', 'households', 'households_by_msa', 'households_records', 'lease_date', 'leases', 'leases_by_msa', 'leases_records', 'msa_count', 'permits', 'permits_by_msa', 'permits_records', 'property_id', 'property_type', 'rental', 'single_family', 'source', 'successful_loads', 'townhouse', 'unique_msas', 'vacancy', 'vacancy_by_msa', 'vacancy_rate', 'vacancy_records', 'vacancy_type', 'year']

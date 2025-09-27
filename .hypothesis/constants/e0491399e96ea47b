@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_geo/isochrones/routing.py
+# hypothesis_version: 6.140.2
+
+[-74.1, -74.0, 0.1, 4.8, 15.0, 30.0, 40.7, 40.8, 200, '/', 'Content-Type', 'MultiPolygon', 'Polygon', 'alternatives', 'application/json', 'auto', 'bicycle', 'bike', 'car', 'color', 'contours', 'coordinates', 'costing', 'denoise', 'directions_options', 'drive', 'false', 'features', 'ff0000', 'foot', 'generalize', 'geojson', 'geometries', 'geometry', 'lat', 'locations', 'lon', 'miles', 'networkx', 'osrm', 'overview', 'pedestrian', 'polygons', 'routes', 'steps', 'time', 'type', 'units', 'walk']

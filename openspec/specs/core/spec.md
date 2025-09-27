@@ -21,16 +21,22 @@ The system SHALL expose a typed `aker_core.config.Settings` object backed by pyd
 - **THEN** only non-secret fields SHALL appear in the snapshot and the structure SHALL remain stable for regression tests
 
 ### Requirement: Runtime Feature Flags
-The system SHALL provide `aker_core.flags.is_enabled(flag_name: str) -> bool` backed by the settings object to toggle behaviour without code changes and capture evaluated flags in `runs.config_json` for auditability.
+The feature flag system SHALL continue to resolve defaults, dotenv, and environment values in precedence order without behavioural changes from this refactor.
 
-#### Scenario: Flag Lookup Mirrors Settings Resolution
-- **GIVEN** a flag default set to `false`
-- **WHEN** an environment variable sets the flag to `true`
-- **THEN** `is_enabled("EXAMPLE_FLAG")` SHALL return `True`
+#### Scenario: Flag Resolution Remains Unchanged
+- **WHEN** a feature flag is overridden via environment variables
+- **THEN** `is_enabled()` SHALL reflect the environment value after logging optimizations
 
-#### Scenario: Flag States Are Persisted With Run Metadata
-- **WHEN** a pipeline run starts with evaluated settings
-- **THEN** the resulting `runs.config_json` entry SHALL include the feature flag map used for that run
+### Requirement: Cache Behaviour
+The cache subsystem SHALL respect environment overrides (`AKER_CACHE_PATH`) and infer storage metadata (e.g., JSON vs Parquet) while exposing helper utilities for reading metadata.
+
+#### Scenario: Cache Respects Environment Override
+- **WHEN** `AKER_CACHE_PATH` is set and `Cache()` is constructed without a base path
+- **THEN** artifacts SHALL be persisted beneath the override directory and metadata helper SHALL reflect the resolved path
+
+#### Scenario: JSON Data Stores Metadata
+- **WHEN** JSON-like data is stored without specifying `data_type`
+- **THEN** the payload SHALL be saved under the inferred type with an adjacent metadata file indicating `data_type="json"`
 
 ### Requirement: Typed External Dependency Settings
 Every external dependency (APIs, storage, services) SHALL have a corresponding typed field within `aker_core.config.Settings`, documenting required parameters and ensuring zero secrets are hard-coded.
@@ -74,6 +80,13 @@ The system SHALL expose `run.log_lineage(table, source, url, fetched_at, hash)` 
 - **WHEN** `log_lineage` is called outside an active run context
 - **THEN** the system SHALL raise an error indicating that lineage logging requires an active `RunContext`
 
+### Requirement: Run Context Engine Management
+The `with_run_context` decorator SHALL reuse database engines and session factories instead of recreating them for each invocation.
+
+#### Scenario: Session Factory Reuse
+- **WHEN** multiple tasks enter the run context within a flow
+- **THEN** the underlying SQLAlchemy engine SHALL be reused (confirmed via test instrumentation) and run status SHALL persist even on meta-session commit errors
+
 ### Requirement: Hexagonal Port Definitions
 The system SHALL define abstract port interfaces for MarketScorer, AssetEvaluator, DealArchetypeModel, and RiskEngine in `aker_core.ports` so core workflows depend on contracts rather than concrete implementations.
 
@@ -99,20 +112,23 @@ Adapters SHALL be hot-swappable in tests by registering test doubles without mut
 - **WHEN** a test registers a stub with `plugins.register("census_acs", StubConnector, override=True)`
 - **THEN** subsequent calls to `plugins.get("census_acs")()` SHALL return the stub implementation for the duration of the test
 
+### Requirement: Flow Orchestration
+Prefect deployments SHALL be defined using supported APIs (Prefect 3 `flow.deploy()` / `flow.serve()`) and tested for serialization.
+
+#### Scenario: Deployment Definitions Load
+- **WHEN** deployments are instantiated in tests
+- **THEN** each deployment SHALL expose a serializable representation without raising exceptions
+
 ### Requirement: Structured Logging
-The system MUST provide structured JSON logging with contextual fields and standardized event names.
+The system SHALL expose a typed `aker_core.logging.get_logger(__name__)` returning a structured logger that emits JSON events with contextual fields (e.g., `msa`, `ms`) for traceable operations **and SHALL provide Prometheus helpers (`generate_metrics`, `make_metrics_app`, `start_metrics_server`) with documented behaviour.**
 
-#### Scenario: Pipeline execution logging
-- **WHEN** a pipeline step executes
-- **THEN** it emits structured JSON logs with event name, timestamp, and contextual fields
+#### Scenario: Market Scoring Log Includes Context
+- **WHEN** `get_logger("scoring").info("scored_market", msa="DEN", ms=42)` is called
+- **THEN** the emitted log SHALL be JSON containing the event name `scored_market` and the fields `msa` and `ms`
 
-#### Scenario: Error logging with taxonomy
-- **WHEN** an error occurs
-- **THEN** it includes error code, category, and severity in the log structure
-
-#### Scenario: Performance timing logs
-- **WHEN** heavy operations complete
-- **THEN** duration and resource usage are logged with appropriate event names
+#### Scenario: Logging Helpers Support Prometheus Endpoints
+- **WHEN** `generate_metrics()` or `make_metrics_app()` is invoked in an environment with Prometheus client
+- **THEN** the helper SHALL return exposition content without repeated registry creation and SHALL raise a clear error if Prometheus is unavailable
 
 ### Requirement: Prometheus Metrics Integration
 The system MUST support optional Prometheus metrics collection with counters and histograms.
@@ -128,3 +144,24 @@ The system MUST support optional Prometheus metrics collection with counters and
 #### Scenario: Metrics endpoint
 - **WHEN** Prometheus scrapes the /metrics endpoint
 - **THEN** it receives properly formatted metrics in exposition format
+
+### Requirement: Market Score Composer
+The system MUST provide a deterministic market score composer that combines supply, jobs, urban, and outdoor pillar scores using documented weights and persists both 0–5 and 0–100 composite variants alongside reproducibility metadata.
+
+#### Scenario: Default Weight Composition
+- **WHEN** `markets.score(msa_id, as_of)` is executed with available pillar scores
+- **THEN** the composer SHALL apply weights 0.3 Supply, 0.3 Jobs, 0.2 Urban, 0.2 Outdoors, yielding a composite 0–5 and 0–100 score persisted to `pillar_scores`
+- **AND** missing pillars SHALL trigger a guarded fallback or validation error rather than silent defaults
+
+#### Scenario: Deterministic Output
+- **WHEN** the composer runs with a fixed set of pillar inputs
+- **THEN** the resulting composite scores SHALL be deterministic and reproducible across runs, enabling golden regression tests
+
+#### Scenario: Alternate Weight Overrides
+- **WHEN** pillar weights are overridden for scenario analysis
+- **THEN** the composer SHALL normalise weights, track the override metadata, and persist both the override parameters and resulting scores
+- **AND** tests SHALL confirm that swapping weights (e.g., Supply vs Jobs) updates the composite score predictably
+
+#### Scenario: Persistence and Lineage
+- **WHEN** composite scores are written to `pillar_scores`
+- **THEN** the record SHALL include both 0–5 and 0–100 fields, the weight metadata, and a run identifier linking to the `runs` table for auditability

@@ -4,22 +4,22 @@ Version: 0.1.0
 Summary: HousingModel
 Requires-Python: >=3.12
 Description-Content-Type: text/markdown
-Requires-Dist: pydantic<3,>=2.6
-Requires-Dist: pydantic-settings<3,>=2.2
-Requires-Dist: SQLAlchemy<3,>=2.0
-Requires-Dist: alembic<2,>=1.13
-Requires-Dist: geoalchemy2<1,>=0.14
-Requires-Dist: pyarrow<16,>=15.0
+Requires-Dist: pydantic
+Requires-Dist: pydantic-settings
+Requires-Dist: SQLAlchemy
+Requires-Dist: alembic
+Requires-Dist: geoalchemy2
+Requires-Dist: pyarrow
 Requires-Dist: duckdb<1,>=0.10
 Requires-Dist: great-expectations<1,>=0.18
 Requires-Dist: structlog<25,>=24.1
-Requires-Dist: prometheus-client<1,>=0.19
-Requires-Dist: requests-cache<2,>=1.2
-Requires-Dist: tenacity<9,>=8.2
-Requires-Dist: prefect<3,>=2.20
-Requires-Dist: geopandas<1,>=0.14
-Requires-Dist: shapely<3,>=2.0
-Requires-Dist: pyproj<4,>=3.6
+Requires-Dist: prometheus-client
+Requires-Dist: requests-cache
+Requires-Dist: tenacity
+Requires-Dist: prefect
+Requires-Dist: geopandas
+Requires-Dist: shapely
+Requires-Dist: pyproj
 
 # HousingModel (replace via scripts/init.sh)
 
@@ -87,10 +87,17 @@ an error taxonomy (`classify_error`, `log_classified_error`) so downstream syste
 - Production (PostGIS): set `AKER_POSTGIS_DSN` in environment or `.env`.
   - Example: `postgresql+psycopg://user:pass@db-host:5432/aker`.
 - Development (SQLite/SpatiaLite optional): use SQLite for quick local runs and CI.
-  - Example: `sqlite+pysqlite:///./local.db`.
+- Example: `sqlite+pysqlite:///./local.db`.
 - Geometry fields:
   - PostgreSQL: true PostGIS geometry columns.
   - SQLite: fallback TEXT columns (WKT/WKB strings) for tests; enable SpatiaLite in your local environment if needed.
+
+### Materialized analytics tables
+
+- `market_analytics` captures pre-computed market metrics (pillar scores, supply/job signals, and census aggregates) keyed by `period_month` and refreshed via the `flows.refresh_materialized_tables` Prefect flow.
+- `asset_performance` records per-asset scoring, market rollups, and rank-in-market for downstream BI.
+- Both tables are refreshed together, validated with Great Expectations suites (`market_analytics_validation`, `asset_performance_validation`), and exposed through helper views `market_supply_joined` and `asset_scoring_joined` for complex joins.
+- Schedule the refresh with the provided Prefect deployment (`materialized-analytics-refresh`) or trigger manually: `from flows import refresh_materialized_tables; refresh_materialized_tables()`.
 
 Running migrations locally with SQLite:
 

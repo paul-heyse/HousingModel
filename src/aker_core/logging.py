@@ -19,14 +19,20 @@ try:  # pragma: no cover - optional dependency guard (should be available in pro
         CollectorRegistry,
         Counter,
         Histogram,
+        Info,
         generate_latest,
         make_wsgi_app,
         start_http_server,
     )
 except Exception:  # pragma: no cover - fallback when metrics optional
     CollectorRegistry = None  # type: ignore
-    Counter = Histogram = None  # type: ignore
+    Counter = Histogram = Info = None  # type: ignore
     generate_latest = make_wsgi_app = start_http_server = None  # type: ignore
+
+try:  # pragma: no cover - optional dependency
+    import tracemalloc as _tracemalloc
+except Exception:  # pragma: no cover - environment without tracemalloc
+    _tracemalloc = None  # type: ignore
 
 
 BoundLogger = structlog.stdlib.BoundLogger
@@ -54,6 +60,7 @@ _CONFIGURED = False
 _COUNTERS: Dict[Tuple[str, Tuple[str, ...]], Counter] = {}
 _HISTOGRAMS: Dict[Tuple[str, Tuple[str, ...]], Histogram] = {}
 _REGISTRY: Optional[CollectorRegistry] = CollectorRegistry() if CollectorRegistry else None
+_DEFAULT_INFO_METRIC: Optional[Any] = None
 
 
 def configure_logging(
@@ -101,6 +108,7 @@ def reset_logging() -> None:
         pass
     if CollectorRegistry is not None:
         globals()["_REGISTRY"] = CollectorRegistry()
+        globals()["_DEFAULT_INFO_METRIC"] = None
 
 
 def _ensure_configured() -> None:
@@ -119,6 +127,10 @@ def _metric_key(name: str, labels: Dict[str, Any]) -> Tuple[str, Tuple[str, ...]
     return name, tuple(sorted(labels.keys()))
 
 
+def _normalize_labels(labels: Dict[str, Any]) -> Dict[str, str]:
+    return {key: str(value) for key, value in labels.items()}
+
+
 def increment_counter(
     name: str,
     description: str,
@@ -131,6 +143,7 @@ def increment_counter(
     if Counter is None or _REGISTRY is None:  # pragma: no cover - occurs if dependency optional
         return
 
+    labels = _normalize_labels(labels)
     key = _metric_key(name, labels)
     counter = _COUNTERS.get(key)
     if counter is None:
@@ -153,6 +166,7 @@ def observe_duration(
     if Histogram is None or _REGISTRY is None:  # pragma: no cover - occurs if dependency optional
         return
 
+    labels = _normalize_labels(labels)
     key = _metric_key(name, labels)
     histogram = _HISTOGRAMS.get(key)
     if histogram is None:
@@ -199,15 +213,16 @@ def log_timing(
     cpu_start = time.process_time()
     memory_start: Optional[Tuple[int, int]] = None
     tracemalloc_started = False
-    try:  # pragma: no cover - tracemalloc optional
-        import tracemalloc
-
-        if not tracemalloc.is_tracing():
-            tracemalloc.start()
-            tracemalloc_started = True
-        memory_start = tracemalloc.get_traced_memory()
-    except Exception:
-        memory_start = None
+    if _tracemalloc is not None:  # pragma: no cover - optional dependency
+        try:
+            if _tracemalloc.is_tracing():
+                memory_start = _tracemalloc.get_traced_memory()
+            else:
+                _tracemalloc.start()
+                tracemalloc_started = True
+                memory_start = _tracemalloc.get_traced_memory()
+        except Exception:
+            memory_start = None
     error: Optional[BaseException] = None
     try:
         yield
@@ -218,16 +233,18 @@ def log_timing(
         duration_ms = (time.perf_counter() - start) * 1000.0
         cpu_ms = (time.process_time() - cpu_start) * 1000.0
         memory_delta_kb: Optional[float] = None
-        try:  # pragma: no cover - tracemalloc optional
-            import tracemalloc
-
-            if memory_start is not None:
-                current = tracemalloc.get_traced_memory()[0]
+        if _tracemalloc is not None and memory_start is not None:  # pragma: no cover
+            try:
+                current = _tracemalloc.get_traced_memory()[0]
                 memory_delta_kb = (current - memory_start[0]) / 1024.0
-            if tracemalloc_started:
-                tracemalloc.stop()
-        except Exception:
-            memory_delta_kb = None
+            except Exception:
+                memory_delta_kb = None
+            finally:
+                if tracemalloc_started:
+                    try:
+                        _tracemalloc.stop()
+                    except Exception:
+                        pass
         payload: Dict[str, Any] = dict(extra or {})
         payload["duration_ms"] = round(duration_ms, 3)
         payload["cpu_time_ms"] = round(cpu_ms, 3)
@@ -261,7 +278,7 @@ def log_counter(
     payload = dict(extra or {})
     payload.setdefault("count", amount)
     if labels:
-        payload.update({f"label_{key}": value for key, value in labels.items()})
+        payload.update({f"label_{key}": str(value) for key, value in labels.items()})
     getattr(logger, level, logger.info)(event, **payload)
 
 
@@ -303,11 +320,28 @@ def log_classified_error(
         logger.error(event, **payload)
 
 
+def _ensure_default_metrics() -> None:
+    """Ensure the registry exposes at least one metric for exposition."""
+
+    global _DEFAULT_INFO_METRIC
+    if Info is None or _REGISTRY is None:
+        return
+    if _DEFAULT_INFO_METRIC is None:
+        info = Info(
+            "aker_build_info",
+            "Build metadata for the Aker platform",
+            registry=_REGISTRY,
+        )
+        info.info({"version": "unknown"})
+        _DEFAULT_INFO_METRIC = info
+
+
 def generate_metrics() -> bytes:
     """Generate Prometheus metrics in exposition format."""
 
     if generate_latest is None or _REGISTRY is None:  # pragma: no cover
-        return b""
+        raise RuntimeError("Prometheus client is not available")
+    _ensure_default_metrics()
     return generate_latest(_REGISTRY)
 
 

@@ -6,7 +6,7 @@ from datetime import date
 from typing import List, Optional
 
 from aker_core.cache import fetch
-from aker_core.logging import get_logger
+from aker_core.run import RunContext
 
 from ..connector import PermitsConnector
 from ..models import PermitCollectionResult, PermitRecord, PermitStatus, PermitType
@@ -15,9 +15,17 @@ from ..models import PermitCollectionResult, PermitRecord, PermitStatus, PermitT
 class NYCConnector(PermitsConnector):
     """Connector for New York City permit portal."""
 
-    def __init__(self, city: str = "New York", state: str = "NY", **kwargs):
+    def __init__(
+        self,
+        city: str = "New York",
+        state: str = "NY",
+        run_context: Optional[RunContext] = None,
+        **kwargs,
+    ):
         """Initialize NYC connector."""
-        super().__init__(city, state, **kwargs)
+        super().__init__(
+            city, state, run_context=run_context, rate_limiter=kwargs.get("rate_limiter")
+        )
         self.base_url = "https://data.cityofnewyork.us/resource"
         self.api_key = kwargs.get("api_key")  # NYC Open Data API key if needed
 
@@ -79,7 +87,9 @@ class NYCConnector(PermitsConnector):
             # Normalize to our standard format
             permits = self.normalize_permit_data(raw_data)
 
-            self._log_collection_complete(PermitCollectionResult(permits, {"records_fetched": len(raw_data)}))
+            self._log_collection_complete(
+                PermitCollectionResult(permits, {"records_fetched": len(raw_data)})
+            )
 
             return PermitCollectionResult(permits, {"records_fetched": len(raw_data)})
 

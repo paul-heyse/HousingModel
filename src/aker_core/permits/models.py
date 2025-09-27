@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from enum import Enum
-from typing import Optional, Union
+from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -72,7 +72,9 @@ class PermitRecord(BaseModel):
 
     # Property information
     address: Address = Field(..., description="Property address")
-    property_type: str = Field(..., description="Type of property (residential, commercial, etc.)")
+    property_type: Optional[str] = Field(
+        None, description="Type of property (residential, commercial, etc.)"
+    )
     square_footage: Optional[int] = Field(None, description="Square footage of work area")
 
     # Applicant information
@@ -84,85 +86,36 @@ class PermitRecord(BaseModel):
     # Metadata
     source_system: str = Field(..., description="Source system identifier")
     source_url: Optional[str] = Field(None, description="Original source URL")
-    collected_at: datetime = Field(default_factory=datetime.now, description="When data was collected")
-    last_updated: datetime = Field(default_factory=datetime.now, description="When record was last updated")
+    collected_at: datetime = Field(
+        default_factory=datetime.now, description="When data was collected"
+    )
+    last_updated: datetime = Field(
+        default_factory=datetime.now, description="When record was last updated"
+    )
 
     # Validation flags
-    data_quality_issues: list[str] = Field(default_factory=list, description="Data quality issues found")
-    processing_errors: list[str] = Field(default_factory=list, description="Processing errors encountered")
-
-    @field_validator("application_date", "issue_date", "expiration_date", "completion_date")
-    @classmethod
-    def validate_dates(cls, v):
-        """Validate that dates are reasonable."""
-        if v is None:
-            return v
-
-        # Check for reasonable date ranges
-        if v.year < 2000:
-            return v  # Allow older dates for historical data
-
-        return v
-
-    @field_validator("issue_date")
-    @classmethod
-    def validate_issue_date(cls, v):
-        """Validate issue date is after application date."""
-        if v is None:
-            return v
-
-        # This is a simplified validation - in practice you'd check against the instance
-        return v
-
-    @field_validator("completion_date")
-    @classmethod
-    def validate_completion_date(cls, v):
-        """Validate completion date is after issue date."""
-        if v is None:
-            return v
-
-        # This is a simplified validation - in practice you'd check against the instance
-        return v
+    data_quality_issues: list[str] = Field(
+        default_factory=list, description="Data quality issues found"
+    )
+    processing_errors: list[str] = Field(
+        default_factory=list, description="Processing errors encountered"
+    )
 
     @field_validator("estimated_cost", "actual_cost", "valuation")
     @classmethod
-    def validate_costs(cls, v):
-        """Validate cost values."""
-        if v is None:
-            return v
-
-        if v < 0:
+    def _ensure_non_negative(cls, value: Optional[float]) -> Optional[float]:
+        """Ensure monetary fields are non-negative."""
+        if value is not None and value < 0:
             raise ValueError("Cost values cannot be negative")
-
-        # Reasonable upper bounds (adjust as needed)
-        if v > 100000000:  # $100M
-            raise ValueError("Cost values seem unreasonably high")
-
-        return v
-
-    @field_validator("square_footage")
-    @classmethod
-    def validate_square_footage(cls, v):
-        """Validate square footage values."""
-        if v is None:
-            return v
-
-        if v < 0:
-            raise ValueError("Square footage cannot be negative")
-
-        # Reasonable upper bounds
-        if v > 1000000:  # 1M sq ft
-            raise ValueError("Square footage seems unreasonably high")
-
-        return v
+        return value
 
     def to_dict(self) -> dict:
         """Convert to dictionary for serialization."""
-        return self.dict()
+        return self.model_dump()
 
     def to_json(self) -> str:
         """Convert to JSON string."""
-        return self.json()
+        return self.model_dump_json()
 
     @classmethod
     def from_dict(cls, data: dict) -> "PermitRecord":
@@ -173,6 +126,7 @@ class PermitRecord(BaseModel):
     def from_json(cls, json_str: str) -> "PermitRecord":
         """Create from JSON string."""
         import json
+
         data = json.loads(json_str)
         return cls(**data)
 
@@ -184,7 +138,7 @@ class PermitCollectionResult:
         self,
         permits: list[PermitRecord],
         collection_metadata: dict[str, any],
-        errors: list[str] = None
+        errors: list[str] = None,
     ):
         self.permits = permits
         self.collection_metadata = collection_metadata
@@ -206,5 +160,5 @@ class PermitCollectionResult:
             "total_permits": self.total_permits,
             "collection_metadata": self.collection_metadata,
             "errors": self.errors,
-            "success": self.success
+            "success": self.success,
         }

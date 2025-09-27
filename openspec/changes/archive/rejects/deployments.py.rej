@@ -1,0 +1,97 @@
+--- flows/deployments.py
++++ flows/deployments.py
+@@ -1,75 +1,94 @@
+ """Prefect deployment configurations for ETL flows."""
+
+ from __future__ import annotations
+
+ from prefect import deployment
+ from prefect.client.schemas import Schedule
+
+ from .refresh_market_data import refresh_market_data
++from .refresh_materialized import refresh_materialized_tables
+ from .score_all_markets import score_all_markets
+
+
+ # Market data refresh - daily at 6 AM
+ market_data_refresh = deployment(
+     name="market-data-refresh-daily",
+     flow=refresh_market_data,
+     schedule=Schedule(cron="0 6 * * *"),  # Daily at 6 AM
+     parameters={"year": "2022"},  # Default year, can be overridden
+     tags=["etl", "market-data", "daily"],
+     description="Daily refresh of market data from external sources",
+     version="1.0.0",
+     work_pool_name="default-work-pool",
+     work_queue_name="default",
+ )
+
+ # Market scoring - weekly on Monday at 8 AM
+ market_scoring = deployment(
+     name="market-scoring-weekly",
+     flow=score_all_markets,
+     schedule=Schedule(cron="0 8 * * 1"),  # Weekly on Monday at 8 AM
+     tags=["etl", "scoring", "weekly"],
+     description="Weekly scoring of all markets using latest data",
+     version="1.0.0",
+     work_pool_name="default-work-pool",
+     work_queue_name="default",
+ )
+
++# Materialized analytics refresh - every 2 hours
++materialized_refresh = deployment(
++    name="materialized-analytics-refresh",
++    flow=refresh_materialized_tables,
++    schedule=Schedule(cron="0 */2 * * *"),
++    tags=["analytics", "materialized", "bi"],
++    description="Refresh market analytics and asset performance materialized tables",
++    version="1.0.0",
++    work_pool_name="default-work-pool",
++    work_queue_name="default",
++)
++
+ # Manual deployments (no schedule)
+ market_data_refresh_manual = deployment(
+     name="market-data-refresh-manual",
+     flow=refresh_market_data,
+     tags=["etl", "market-data", "manual"],
+     description="Manual refresh of market data",
+     version="1.0.0",
+     work_pool_name="default-work-pool",
+     work_queue_name="default",
+ )
+
+ market_scoring_manual = deployment(
+     name="market-scoring-manual",
+     flow=score_all_markets,
+     tags=["etl", "scoring", "manual"],
+     description="Manual scoring of all markets",
+     version="1.0.0",
+     work_pool_name="default-work-pool",
+     work_queue_name="default",
+ )
+
+
+ if __name__ == "__main__":
+     # Deploy all flows
+     print("Deploying ETL flows...")
+
+     try:
+         market_data_refresh.apply()
+         print("✓ Market data refresh deployment created")
+     except Exception as e:
+         print(f"✗ Failed to deploy market data refresh: {e}")
+
+     try:
+         market_scoring.apply()
+         print("✓ Market scoring deployment created")
+     except Exception as e:
+         print(f"✗ Failed to deploy market scoring: {e}")
+
++    try:
++        materialized_refresh.apply()
++        print("✓ Materialized analytics refresh deployment created")
++    except Exception as e:
++        print(f"✗ Failed to deploy materialized analytics refresh: {e}")
++
+     print("Deployment complete!")

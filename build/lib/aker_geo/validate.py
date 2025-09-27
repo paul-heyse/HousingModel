@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+from typing import Dict, List, Optional, Union
+
 import geopandas as gpd
 import pandas as pd
-from shapely.geometry import Polygon, MultiPolygon, LineString, MultiLineString, Point, MultiPoint
 from shapely.validation import explain_validity
-from typing import Dict, List, Optional, Tuple, Union
 
 from .crs import STORAGE_CRS, UI_CRS, detect_crs_from_geometry
 
@@ -20,7 +20,7 @@ class GeometryValidationResult:
         valid_geometries: int,
         invalid_geometries: int,
         corrected_geometries: int = 0,
-        validation_errors: Optional[List[Dict[str, any]]] = None
+        validation_errors: Optional[List[Dict[str, any]]] = None,
     ):
         self.total_geometries = total_geometries
         self.valid_geometries = valid_geometries
@@ -36,7 +36,9 @@ class GeometryValidationResult:
     @property
     def correction_rate(self) -> float:
         """Percentage of geometries that were corrected."""
-        return self.corrected_geometries / self.total_geometries if self.total_geometries > 0 else 0.0
+        return (
+            self.corrected_geometries / self.total_geometries if self.total_geometries > 0 else 0.0
+        )
 
     def to_dict(self) -> Dict[str, any]:
         """Convert to dictionary for serialization."""
@@ -47,7 +49,7 @@ class GeometryValidationResult:
             "corrected_geometries": self.corrected_geometries,
             "validity_rate": self.validity_rate,
             "correction_rate": self.correction_rate,
-            "validation_errors": self.validation_errors
+            "validation_errors": self.validation_errors,
         }
 
 
@@ -61,7 +63,7 @@ def validate_geometry(gdf: Union[gpd.GeoDataFrame, pd.DataFrame]) -> GeometryVal
         GeometryValidationResult with validation statistics and errors
     """
     if not isinstance(gdf, gpd.GeoDataFrame):
-        if 'geometry' not in gdf.columns:
+        if "geometry" not in gdf.columns:
             raise ValueError("DataFrame must have 'geometry' column or be a GeoDataFrame")
         gdf = gpd.GeoDataFrame(gdf)
 
@@ -75,11 +77,9 @@ def validate_geometry(gdf: Union[gpd.GeoDataFrame, pd.DataFrame]) -> GeometryVal
         geometry = row.geometry
         if geometry is None:
             invalid_geometries += 1
-            validation_errors.append({
-                "index": idx,
-                "error_type": "null_geometry",
-                "message": "Geometry is None"
-            })
+            validation_errors.append(
+                {"index": idx, "error_type": "null_geometry", "message": "Geometry is None"}
+            )
             continue
 
         # Check geometry validity
@@ -94,12 +94,14 @@ def validate_geometry(gdf: Union[gpd.GeoDataFrame, pd.DataFrame]) -> GeometryVal
             except Exception:
                 error_msg = "Unknown validation error"
 
-            validation_errors.append({
-                "index": idx,
-                "error_type": "invalid_geometry",
-                "message": error_msg,
-                "geometry_type": geometry.geom_type
-            })
+            validation_errors.append(
+                {
+                    "index": idx,
+                    "error_type": "invalid_geometry",
+                    "message": error_msg,
+                    "geometry_type": geometry.geom_type,
+                }
+            )
 
             # Try to correct the geometry
             try:
@@ -117,7 +119,7 @@ def validate_geometry(gdf: Union[gpd.GeoDataFrame, pd.DataFrame]) -> GeometryVal
         valid_geometries=valid_geometries,
         invalid_geometries=invalid_geometries,
         corrected_geometries=corrected_geometries,
-        validation_errors=validation_errors
+        validation_errors=validation_errors,
     )
 
 
@@ -131,7 +133,7 @@ def validate_crs(gdf: Union[gpd.GeoDataFrame, pd.DataFrame]) -> Dict[str, any]:
         Dictionary with CRS validation results
     """
     if not isinstance(gdf, gpd.GeoDataFrame):
-        if 'geometry' not in gdf.columns:
+        if "geometry" not in gdf.columns:
             raise ValueError("DataFrame must have 'geometry' column or be a GeoDataFrame")
         gdf = gpd.GeoDataFrame(gdf)
 
@@ -141,7 +143,7 @@ def validate_crs(gdf: Union[gpd.GeoDataFrame, pd.DataFrame]) -> Dict[str, any]:
         "crs_name": str(current_crs) if current_crs else None,
         "is_storage_crs": False,
         "is_ui_crs": False,
-        "detected_crs": None
+        "detected_crs": None,
     }
 
     if current_crs:
@@ -179,7 +181,7 @@ def correct_geometry(geometry) -> Optional[any]:
 
     try:
         # Try make_valid if available (Shapely 2.0+)
-        if hasattr(geometry, 'make_valid'):
+        if hasattr(geometry, "make_valid"):
             corrected = geometry.make_valid()
             if corrected.is_valid:
                 return corrected
@@ -188,8 +190,9 @@ def correct_geometry(geometry) -> Optional[any]:
 
     # Try unary_union for self-intersecting polygons
     try:
-        if geometry.geom_type in ['Polygon', 'MultiPolygon']:
+        if geometry.geom_type in ["Polygon", "MultiPolygon"]:
             from shapely.ops import unary_union
+
             corrected = unary_union([geometry])
             if corrected.is_valid:
                 return corrected
@@ -209,7 +212,7 @@ def validate_geometry_types(gdf: Union[gpd.GeoDataFrame, pd.DataFrame]) -> Dict[
         Dictionary with geometry type validation results
     """
     if not isinstance(gdf, gpd.GeoDataFrame):
-        if 'geometry' not in gdf.columns:
+        if "geometry" not in gdf.columns:
             raise ValueError("DataFrame must have 'geometry' column or be a GeoDataFrame")
         gdf = gpd.GeoDataFrame(gdf)
 
@@ -231,7 +234,7 @@ def validate_geometry_types(gdf: Union[gpd.GeoDataFrame, pd.DataFrame]) -> Dict[
         "has_mixed_types": has_mixed_types,
         "empty_geometries": int(empty_geometries),
         "null_geometries": int(null_geometries),
-        "valid_geometries": total_geometries - int(empty_geometries) - int(null_geometries)
+        "valid_geometries": total_geometries - int(empty_geometries) - int(null_geometries),
     }
 
 
@@ -245,7 +248,7 @@ def validate_spatial_bounds(gdf: Union[gpd.GeoDataFrame, pd.DataFrame]) -> Dict[
         Dictionary with spatial bounds validation results
     """
     if not isinstance(gdf, gpd.GeoDataFrame):
-        if 'geometry' not in gdf.columns:
+        if "geometry" not in gdf.columns:
             raise ValueError("DataFrame must have 'geometry' column or be a GeoDataFrame")
         gdf = gpd.GeoDataFrame(gdf)
 
@@ -258,13 +261,10 @@ def validate_spatial_bounds(gdf: Union[gpd.GeoDataFrame, pd.DataFrame]) -> Dict[
             "max_x": float(bounds[2]),
             "max_y": float(bounds[3]),
             "width": float(bounds[2] - bounds[0]),
-            "height": float(bounds[3] - bounds[1])
+            "height": float(bounds[3] - bounds[1]),
         }
     except Exception as e:
-        return {
-            "has_bounds": False,
-            "error": str(e)
-        }
+        return {"has_bounds": False, "error": str(e)}
 
 
 def validate_postgis_compatibility(gdf: Union[gpd.GeoDataFrame, pd.DataFrame]) -> Dict[str, any]:
@@ -277,7 +277,7 @@ def validate_postgis_compatibility(gdf: Union[gpd.GeoDataFrame, pd.DataFrame]) -
         Dictionary with PostGIS compatibility validation results
     """
     if not isinstance(gdf, gpd.GeoDataFrame):
-        if 'geometry' not in gdf.columns:
+        if "geometry" not in gdf.columns:
             raise ValueError("DataFrame must have 'geometry' column or be a GeoDataFrame")
         gdf = gpd.GeoDataFrame(gdf)
 
@@ -286,7 +286,7 @@ def validate_postgis_compatibility(gdf: Union[gpd.GeoDataFrame, pd.DataFrame]) -
         "geometry_types_supported": True,
         "has_srid": gdf.crs is not None,
         "srid_value": str(gdf.crs) if gdf.crs else None,
-        "geometry_types": []
+        "geometry_types": [],
     }
 
     # Check geometry types
@@ -295,8 +295,12 @@ def validate_postgis_compatibility(gdf: Union[gpd.GeoDataFrame, pd.DataFrame]) -
 
     # PostGIS supports: Point, LineString, Polygon, MultiPoint, MultiLineString, MultiPolygon
     supported_types = {
-        'Point', 'LineString', 'Polygon',
-        'MultiPoint', 'MultiLineString', 'MultiPolygon'
+        "Point",
+        "LineString",
+        "Polygon",
+        "MultiPoint",
+        "MultiLineString",
+        "MultiPolygon",
     }
 
     unsupported_types = set(geometry_types) - supported_types
@@ -327,7 +331,7 @@ def comprehensive_geometry_validation(gdf: Union[gpd.GeoDataFrame, pd.DataFrame]
         "geometry_types": None,
         "spatial_bounds": None,
         "postgis_compatibility": None,
-        "summary": {}
+        "summary": {},
     }
 
     try:
@@ -356,7 +360,8 @@ def comprehensive_geometry_validation(gdf: Union[gpd.GeoDataFrame, pd.DataFrame]
             "validity_rate": valid_geoms / total_geoms if total_geoms > 0 else 0,
             "crs_detected": results["crs_validation"]["has_crs"],
             "spatial_bounds_available": results["spatial_bounds"]["has_bounds"],
-            "postgis_compatible": results["postgis_compatibility"]["crs_compatible"] and results["postgis_compatibility"]["geometry_types_supported"]
+            "postgis_compatible": results["postgis_compatibility"]["crs_compatible"]
+            and results["postgis_compatibility"]["geometry_types_supported"],
         }
 
     except Exception as e:

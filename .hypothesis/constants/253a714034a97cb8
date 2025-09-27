@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_core/supply/integration.py
+# hypothesis_version: 6.140.2
+
+['1.0.0', 'HUD', 'avg_elasticity', 'avg_leaseup_days', 'avg_vacancy', 'data_freshness', 'data_hash', 'elasticity', 'elasticity_score', 'has_elasticity_data', 'has_leaseup_data', 'has_vacancy_data', 'households', 'hud_data', 'latest', 'latest_calc', 'lease_data', 'lease_date', 'leaseup_days', 'leaseup_score', 'msa_id', 'overall_quality', 'permits', 'quality_checks', 'record_id', 'rental', 'source', 'summary_stats', 'time_window', 'total_records', 'vacancy', 'vacancy_score', 'vacancy_type', 'years']

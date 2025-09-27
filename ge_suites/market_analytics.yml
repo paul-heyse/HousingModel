@@ -1,0 +1,172 @@
+name: market_analytics_validation
+version: 1.0.0
+description: "Great Expectations suite for market analytics data validation"
+
+datasources:
+  - name: pandas
+    class_name: PandasDatasource
+    data_asset_type:
+      class_name: PandasDataset
+
+expectation_suite_name: market_analytics_suite
+
+meta:
+  created_by: HousingModel ETL
+  dataset_type: market_analytics
+  validation_level: strict
+
+expectations:
+  - expectation_type: expect_table_row_count_to_be_between
+    kwargs:
+      min_value: 10
+      max_value: 10000
+    meta:
+      description: "Market analytics datasets should have reasonable row counts"
+
+  - expectation_type: expect_table_columns_to_match_ordered_list
+    kwargs:
+      column_list:
+        - msa_id
+        - market_name
+        - population
+        - households
+        - vacancy_rate
+        - permit_per_1k
+        - tech_cagr
+        - walk_15_ct
+        - trail_mi_pc
+        - supply_score
+        - jobs_score
+        - urban_score
+        - outdoor_score
+        - composite_score
+        - period_month
+        - refreshed_at
+        - run_id
+    meta:
+      description: "Required columns for market analytics data"
+
+  - expectation_type: expect_column_to_exist
+    kwargs:
+      column: msa_id
+    meta:
+      description: "MSA ID column must exist"
+
+  - expectation_type: expect_column_to_exist
+    kwargs:
+      column: composite_score
+    meta:
+      description: "Composite score column must exist"
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: msa_id
+    meta:
+      description: "MSA IDs cannot be null"
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: composite_score
+    meta:
+      description: "Composite scores cannot be null"
+
+  - expectation_type: expect_column_values_to_be_of_type
+    kwargs:
+      column: msa_id
+      type_: STRING
+    meta:
+      description: "MSA ID must be string"
+
+  - expectation_type: expect_column_values_to_be_of_type
+    kwargs:
+      column: composite_score
+      type_: FLOAT
+    meta:
+      description: "Composite score must be numeric"
+
+  - expectation_type: expect_column_values_to_be_between
+    kwargs:
+      column: composite_score
+      min_value: 0
+      max_value: 10
+    meta:
+      description: "Composite scores must be between 0 and 10"
+
+  - expectation_type: expect_column_values_to_be_between
+    kwargs:
+      column: population
+      min_value: 1000
+      max_value: 50000000
+    meta:
+      description: "Population should be between 1,000 and 50 million"
+
+  - expectation_type: expect_column_values_to_be_between
+    kwargs:
+      column: vacancy_rate
+      min_value: 0
+      max_value: 50
+    meta:
+      description: "Vacancy rate should be between 0% and 50%"
+
+  - expectation_type: expect_column_values_to_be_between
+    kwargs:
+      column: permit_per_1k
+      min_value: 0
+      max_value: 100
+    meta:
+      description: "Permits per 1k population should be reasonable"
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: period_month
+    meta:
+      description: "Period month must be specified"
+
+  - expectation_type: expect_column_values_to_be_of_type
+    kwargs:
+      column: period_month
+      type_: TIMESTAMP
+    meta:
+      description: "Period month must be timestamp"
+
+  - expectation_type: expect_column_values_to_be_between
+    kwargs:
+      column: period_month
+      min_value: 2010-01-01
+      max_value: 2030-12-31
+    meta:
+      description: "Period month should be between 2010 and 2030"
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: refreshed_at
+    meta:
+      description: "Refresh timestamp must be present"
+
+  - expectation_type: expect_column_values_to_be_of_type
+    kwargs:
+      column: refreshed_at
+      type_: TIMESTAMP
+    meta:
+      description: "Refresh timestamp must be timestamp type"
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: run_id
+    meta:
+      description: "Run ID must be specified"
+
+  - expectation_type: expect_column_values_to_be_of_type
+    kwargs:
+      column: run_id
+      type_: INTEGER
+    meta:
+      description: "Run ID must be integer"
+
+  - expectation_type: expect_column_proportion_of_unique_values_to_be_between
+    kwargs:
+      column: msa_id
+      min_value: 0.95
+      max_value: 1.0
+    meta:
+      description: "MSA IDs should be mostly unique (95-100%)"

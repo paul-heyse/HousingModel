@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_core/expansions/models.py
+# hypothesis_version: 6.140.2
+
+[0.0, 1.0, 'Anomaly reason codes', 'company', 'investment_amount', 'jobs_created']

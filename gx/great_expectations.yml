@@ -1,0 +1,36 @@
+anonymous_usage_statistics:
+  enabled: false
+checkpoint_store_name: checkpoint_store
+config_version: 3.0
+datasources:
+  pandas:
+    class_name: PandasDatasource
+    data_asset_type:
+      class_name: PandasDataset
+evaluation_parameter_store_name: evaluation_parameter_store
+expectations_store_name: expectations_store
+profiler_store_name: profiler_store
+stores:
+  checkpoint_store:
+    class_name: CheckpointStore
+    store_backend:
+      base_directory: checkpoints/
+      class_name: TupleFilesystemStoreBackend
+  evaluation_parameter_store:
+    class_name: EvaluationParameterStore
+  expectations_store:
+    class_name: ExpectationsStore
+    store_backend:
+      base_directory: expectations/
+      class_name: TupleFilesystemStoreBackend
+  profiler_store:
+    class_name: ProfilerStore
+    store_backend:
+      base_directory: profilers/
+      class_name: TupleFilesystemStoreBackend
+  validations_store:
+    class_name: ValidationsStore
+    store_backend:
+      base_directory: validations/
+      class_name: TupleFilesystemStoreBackend
+validations_store_name: validations_store

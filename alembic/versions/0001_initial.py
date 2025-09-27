@@ -48,7 +48,10 @@ def upgrade() -> None:
         sa.Column("urban_0_5", sa.Float()),
         sa.Column("outdoor_0_5", sa.Float()),
         sa.Column("weighted_0_5", sa.Float()),
+        sa.Column("weighted_0_100", sa.Float()),
         sa.Column("risk_multiplier", sa.Float()),
+        sa.Column("weights", sa.JSON()),
+        sa.Column("score_as_of", sa.Date()),
         sa.Column("run_id", sa.Integer()),
     )
 

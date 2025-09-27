@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_core/connectors/registry.py
+# hypothesis_version: 6.140.2
+
+[', ', 'BASE_URL', 'bea', 'bfs', 'bls', 'census_acs', 'epa_airnow', 'fema', 'gtfs', 'lodes', 'noaa_hms', 'osm', 'usgs_dem']

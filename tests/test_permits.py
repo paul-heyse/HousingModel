@@ -2,22 +2,18 @@
 
 from __future__ import annotations
 
-import json
-import tempfile
-from datetime import date, datetime
-from unittest.mock import MagicMock, patch
-from pathlib import Path
+from datetime import date
+from unittest.mock import MagicMock
 
-import pandas as pd
 import pytest
 
 from aker_core.permits import (
-    PermitsConnector,
-    get_connector,
+    ConnectorRegistry,
     PermitRecord,
+    PermitsConnector,
     PermitStatus,
     PermitType,
-    ConnectorRegistry,
+    get_connector,
 )
 from aker_core.permits.models import Address
 
@@ -47,8 +43,8 @@ def sample_permit_data():
                 "state": "CA",
                 "zip_code": "12345",
                 "latitude": 34.0522,
-                "longitude": -118.2437
-            }
+                "longitude": -118.2437,
+            },
         },
         {
             "permit_id": "P2023002",
@@ -71,9 +67,9 @@ def sample_permit_data():
                 "state": "CA",
                 "zip_code": "12346",
                 "latitude": 34.0523,
-                "longitude": -118.2438
-            }
-        }
+                "longitude": -118.2438,
+            },
+        },
     ]
 
 
@@ -94,7 +90,7 @@ class TestPermitModels:
             state="CA",
             zip_code="12345",
             latitude=34.0522,
-            longitude=-118.2437
+            longitude=-118.2437,
         )
 
         permit = PermitRecord(
@@ -106,8 +102,9 @@ class TestPermitModels:
             issue_date=date(2023, 2, 1),
             estimated_cost=350000,
             address=address,
+            property_type="residential",
             applicant_name="John Doe",
-            source_system="test_system"
+            source_system="test_system",
         )
 
         assert permit.permit_id == "P2023001"
@@ -117,12 +114,7 @@ class TestPermitModels:
 
     def test_permit_record_validation(self):
         """Test permit record validation."""
-        address = Address(
-            street="123 Main St",
-            city="Anytown",
-            state="CA",
-            zip_code="12345"
-        )
+        address = Address(street="123 Main St", city="Anytown", state="CA", zip_code="12345")
 
         # Test with invalid cost
         with pytest.raises(ValueError, match="Cost values cannot be negative"):
@@ -134,18 +126,14 @@ class TestPermitModels:
                 application_date=date(2023, 1, 15),
                 estimated_cost=-1000,  # Invalid negative cost
                 address=address,
+                property_type="residential",
                 applicant_name="John Doe",
-                source_system="test_system"
+                source_system="test_system",
             )
 
     def test_permit_record_serialization(self):
         """Test permit record serialization."""
-        address = Address(
-            street="123 Main St",
-            city="Anytown",
-            state="CA",
-            zip_code="12345"
-        )
+        address = Address(street="123 Main St", city="Anytown", state="CA", zip_code="12345")
 
         permit = PermitRecord(
             permit_id="P2023001",
@@ -154,8 +142,9 @@ class TestPermitModels:
             description="Test permit",
             application_date=date(2023, 1, 15),
             address=address,
+            property_type="residential",
             applicant_name="John Doe",
-            source_system="test_system"
+            source_system="test_system",
         )
 
         # Test to_dict
@@ -273,7 +262,7 @@ class TestNYCConnector:
             "issuance_date": "2023-02-01",
             "house_street": "123 Main St",
             "zip_code": "10001",
-            "estimated_cost": "350000"
+            "estimated_cost": "350000",
         }
 
         permit_record = connector._convert_to_permit_record(raw_permit)
@@ -324,7 +313,7 @@ class TestLAConnector:
             "issue_date": "2023-02-01",
             "address": "123 Main St",
             "zip_code": "90210",
-            "valuation": "350000"
+            "valuation": "350000",
         }
 
         permit_record = connector._convert_to_permit_record(raw_permit)
@@ -340,7 +329,7 @@ class TestPermitCollectionFlow:
 
     def test_collect_permits_flow_structure(self):
         """Test that collect_permits flow is properly structured."""
-        from flows.collect_permits import collect_permits, PermitCollectionFlow
+        from flows.collect_permits import PermitCollectionFlow, collect_permits
 
         # Check that flow is properly decorated
         assert hasattr(collect_permits, "is_flow")
@@ -361,7 +350,8 @@ class TestPermitCollectionFlow:
     def test_permit_collection_flow_imports(self):
         """Test that permit collection flow can be imported."""
         try:
-            from flows.collect_permits import collect_permits, PermitCollectionFlow
+            from flows.collect_permits import PermitCollectionFlow, collect_permits
+
             assert callable(collect_permits)
             assert PermitCollectionFlow is not None
         except ImportError as e:
@@ -375,12 +365,12 @@ class TestIntegration:
         """Test that permit module can be imported."""
         try:
             from aker_core.permits import (
-                PermitsConnector,
-                get_connector,
+                ConnectorRegistry,
                 PermitRecord,
+                PermitsConnector,
                 PermitStatus,
                 PermitType,
-                ConnectorRegistry,
+                get_connector,
             )
 
             # Check that all classes and functions are available
@@ -413,12 +403,7 @@ class TestIntegration:
 
     def test_permit_record_round_trip(self):
         """Test permit record creation and serialization."""
-        address = Address(
-            street="123 Main St",
-            city="Anytown",
-            state="CA",
-            zip_code="12345"
-        )
+        address = Address(street="123 Main St", city="Anytown", state="CA", zip_code="12345")
 
         # Create permit record
         permit = PermitRecord(
@@ -429,7 +414,7 @@ class TestIntegration:
             application_date=date(2023, 1, 15),
             address=address,
             applicant_name="John Doe",
-            source_system="test_system"
+            source_system="test_system",
         )
 
         # Test serialization

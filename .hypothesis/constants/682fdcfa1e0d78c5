@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_core/connectors/base.py
+# hypothesis_version: 6.140.2
+
+[365, 429, 500, 502, 503, 504, 'GET', 'collection_result', 'connector', 'end_date', 'http://', 'https://', 'result_type', 'start_date']

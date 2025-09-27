@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_geo/terrain/buffers.py
+# hypothesis_version: 6.140.2
+
+[0.0, 0.3048, 5.0, 20.0, 40.0, 100.0, 300.0, 'EPSG:3857', 'FType', 'buffer_feature_types', 'buffer_impacted_pct', 'buffer_severity', 'distance_ft', 'distance_m', 'feature_type', 'ftype', 'geometry', 'high', 'index', 'low', 'medium', 'nan', 'none', 'source_id']

@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_geo/terrain/scoring.py
+# hypothesis_version: 6.140.2
+
+[0.0, 0.3, 0.4, 1.0, 10.0, 15.0, 25.0, 35.0, 40.0, 55.0, 100.0, '_buffer', '_overlay', '_slope', 'buffer', 'buffer_impacted_pct', 'buffer_pct', 'buffer_score', 'buffer_severity', 'constraint_details', 'constraint_score', 'extreme', 'flat', 'high', 'low', 'medium', 'moderate', 'noise_overlay_pct', 'none', 'overlay', 'overlay_score', 'protected_pct', 'slope', 'slope_confidence', 'slope_pct', 'slope_score', 'steep', 'viewshed_overlay_pct', 'weights']

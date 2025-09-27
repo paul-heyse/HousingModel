@@ -5,10 +5,9 @@ from __future__ import annotations
 from prefect import deployment
 from prefect.client.schemas import Schedule
 
+from .collect_permits import collect_permits
 from .refresh_market_data import refresh_market_data
 from .score_all_markets import score_all_markets
-from .collect_permits import collect_permits
-
 
 # Market data refresh - daily at 6 AM
 market_data_refresh = deployment(
@@ -63,7 +62,7 @@ permit_collection = deployment(
     schedule=Schedule(cron="0 2 * * 3"),  # Weekly on Wednesday at 2 AM
     parameters={
         "cities_states": [("New York", "NY"), ("Los Angeles", "CA")],
-        "permit_types": ["residential_new", "residential_renovation", "commercial_new"]
+        "permit_types": ["residential_new", "residential_renovation", "commercial_new"],
     },
     tags=["etl", "permits", "weekly"],
     description="Weekly collection of building permits from major cities",

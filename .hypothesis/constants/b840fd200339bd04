@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_data/__init__.py
+# hypothesis_version: 6.140.2
+
+['Base', 'DataLake', 'metadata']

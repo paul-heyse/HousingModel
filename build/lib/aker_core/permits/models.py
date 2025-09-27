@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from enum import Enum
-from typing import Optional, Union
+from typing import Optional
 
 from pydantic import BaseModel, Field, validator
 
@@ -84,12 +84,20 @@ class PermitRecord(BaseModel):
     # Metadata
     source_system: str = Field(..., description="Source system identifier")
     source_url: Optional[str] = Field(None, description="Original source URL")
-    collected_at: datetime = Field(default_factory=datetime.now, description="When data was collected")
-    last_updated: datetime = Field(default_factory=datetime.now, description="When record was last updated")
+    collected_at: datetime = Field(
+        default_factory=datetime.now, description="When data was collected"
+    )
+    last_updated: datetime = Field(
+        default_factory=datetime.now, description="When record was last updated"
+    )
 
     # Validation flags
-    data_quality_issues: list[str] = Field(default_factory=list, description="Data quality issues found")
-    processing_errors: list[str] = Field(default_factory=list, description="Processing errors encountered")
+    data_quality_issues: list[str] = Field(
+        default_factory=list, description="Data quality issues found"
+    )
+    processing_errors: list[str] = Field(
+        default_factory=list, description="Processing errors encountered"
+    )
 
     @validator("application_date", "issue_date", "expiration_date", "completion_date")
     def validate_dates(cls, v, field):
@@ -164,6 +172,7 @@ class PermitRecord(BaseModel):
     def from_json(cls, json_str: str) -> "PermitRecord":
         """Create from JSON string."""
         import json
+
         data = json.loads(json_str)
         return cls(**data)
 
@@ -175,7 +184,7 @@ class PermitCollectionResult:
         self,
         permits: list[PermitRecord],
         collection_metadata: dict[str, any],
-        errors: list[str] = None
+        errors: list[str] = None,
     ):
         self.permits = permits
         self.collection_metadata = collection_metadata
@@ -197,5 +206,5 @@ class PermitCollectionResult:
             "total_permits": self.total_permits,
             "collection_metadata": self.collection_metadata,
             "errors": self.errors,
-            "success": self.success
+            "success": self.success,
         }

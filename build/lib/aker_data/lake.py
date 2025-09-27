@@ -73,12 +73,14 @@ class DataLake:
         # Validate geospatial data if geometry columns exist
         if self._has_geometry_columns(df):
             try:
-                from aker_core.validation import validate_geometry, validate_crs
+                from aker_core.validation import validate_crs, validate_geometry
 
                 # Validate geometry integrity
                 geom_validation = validate_geometry(df)
                 if not geom_validation.success:
-                    self.logger.warning(f"Geometry validation failed for {dataset}: {geom_validation.failed_expectations}")
+                    self.logger.warning(
+                        f"Geometry validation failed for {dataset}: {geom_validation.failed_expectations}"
+                    )
 
                 # Validate CRS
                 crs_validation = validate_crs(df)
@@ -104,9 +106,10 @@ class DataLake:
         if self._has_geometry_columns(df_with_as_of):
             # Convert geometry columns to WKT for Parquet storage
             import geopandas as gpd
+
             if isinstance(df_with_as_of, gpd.GeoDataFrame):
                 for geom_col in df_with_as_of.columns:
-                    if df_with_as_of[geom_col].dtype == 'geometry':
+                    if df_with_as_of[geom_col].dtype == "geometry":
                         df_for_parquet[geom_col] = df_with_as_of[geom_col].astype(str)
 
         # Write partitioned parquet
@@ -204,17 +207,21 @@ class DataLake:
             # Validate geospatial data if geometry columns exist
             if self._has_geometry_columns(df):
                 try:
-                    from aker_core.validation import validate_geometry, validate_crs
+                    from aker_core.validation import validate_crs, validate_geometry
 
                     # Validate geometry integrity
                     geom_validation = validate_geometry(df)
                     if not geom_validation.success:
-                        self.logger.warning(f"Geometry validation failed for {dataset}: {geom_validation.failed_expectations}")
+                        self.logger.warning(
+                            f"Geometry validation failed for {dataset}: {geom_validation.failed_expectations}"
+                        )
 
                     # Validate CRS
                     crs_validation = validate_crs(df)
                     if not crs_validation["crs_compatible"]:
-                        self.logger.warning(f"CRS compatibility issues for {dataset}: {crs_validation}")
+                        self.logger.warning(
+                            f"CRS compatibility issues for {dataset}: {crs_validation}"
+                        )
 
                 except ImportError:
                     # Geospatial libraries not available, skip validation
@@ -269,9 +276,10 @@ class DataLake:
         """Check if DataFrame has geometry columns."""
         try:
             import geopandas as gpd
-            return isinstance(df, gpd.GeoDataFrame) or 'geometry' in df.columns
+
+            return isinstance(df, gpd.GeoDataFrame) or "geometry" in df.columns
         except ImportError:
-            return 'geometry' in df.columns
+            return "geometry" in df.columns
 
     def _convert_wkt_to_geometry(self, df: pd.DataFrame) -> pd.DataFrame:
         """Convert WKT geometry columns back to geometry objects."""
@@ -284,17 +292,21 @@ class DataLake:
 
             # Look for columns that might contain geometry data as strings
             for col in df.columns:
-                if df[col].dtype == 'object':
+                if df[col].dtype == "object":
                     # Check if the first non-null value looks like WKT
                     sample_values = df[col].dropna().head(5)
                     if len(sample_values) > 0:
                         sample = str(sample_values.iloc[0])
-                        if sample.startswith(('POINT', 'POLYGON', 'LINESTRING', 'MULTI')):
+                        if sample.startswith(("POINT", "POLYGON", "LINESTRING", "MULTI")):
                             try:
                                 # Try to parse as WKT
-                                df_result[col] = df[col].apply(lambda x: wkt.loads(str(x)) if pd.notna(x) else None)
+                                df_result[col] = df[col].apply(
+                                    lambda x: wkt.loads(str(x)) if pd.notna(x) else None
+                                )
                                 # Convert to GeoDataFrame if we have a geometry column
-                                if col == 'geometry' and not isinstance(df_result, gpd.GeoDataFrame):
+                                if col == "geometry" and not isinstance(
+                                    df_result, gpd.GeoDataFrame
+                                ):
                                     df_result = gpd.GeoDataFrame(df_result)
                             except Exception:
                                 # Not valid WKT, skip

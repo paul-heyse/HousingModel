@@ -7,6 +7,7 @@ Baseline template for Python projects in Cursor on Ubuntu.
 2. Open folder in Cursor (`cursor .`).
 3. Ensure interpreter shows `.venv/bin/python`.
 4. Run target tasks: **pytest**, **lint**, **format**.
+5. See `docs/innovation_jobs.md` for innovation/jobs analytics usage examples.
 
 See `.cursor/rules`, `.vscode/*`, and `environment.yml` for configuration details.
 
@@ -38,6 +39,22 @@ Core workflows depend on the abstract ports under `aker_core.ports` (`MarketScor
 Tests can hot-swap implementations using `aker_core.plugins.override(...)` without touching
 production wiring.
 
+## Market score composition
+
+The four market pillars (Supply, Jobs, Urban, Outdoors) now roll up through the deterministic
+composer in `aker_core.markets.composer`. Import the helper with
+`from aker_core.markets.composer import score as compose_market_score` to normalise pillar weights
+(defaults to 0.3/0.3/0.2/0.2), persist both 0–5 and 0–100 composites, and record provenance (`weights`,
+`score_as_of`, `run_id`) on the `pillar_scores` row. Batch workflows can process multiple markets at
+once via `from aker_core.markets.composer import score_many` which the
+`MaterializedTableManager` uses when refreshing analytics so missing composites are filled before
+downstream exports.
+
+> Golden-master regression for the composer/service lives in `tests/test_market_score_service.py` and
+> compares the computed scores to the canonical snapshot stored under `tests/data/`. For quick
+> throughput checks, run `pytest tests/perf/test_market_scoring_perf.py -q` to record timing metadata
+> for a 250-market batch refresh.
+
 ## Structured logging & metrics
 
 Use `aker_core.logging.get_logger(__name__)` to emit JSON logs via `structlog`:
@@ -64,10 +81,17 @@ an error taxonomy (`classify_error`, `log_classified_error`) so downstream syste
 - Production (PostGIS): set `AKER_POSTGIS_DSN` in environment or `.env`.
   - Example: `postgresql+psycopg://user:pass@db-host:5432/aker`.
 - Development (SQLite/SpatiaLite optional): use SQLite for quick local runs and CI.
-  - Example: `sqlite+pysqlite:///./local.db`.
+- Example: `sqlite+pysqlite:///./local.db`.
 - Geometry fields:
   - PostgreSQL: true PostGIS geometry columns.
   - SQLite: fallback TEXT columns (WKT/WKB strings) for tests; enable SpatiaLite in your local environment if needed.
+
+### Materialized analytics tables
+
+- `market_analytics` captures pre-computed market metrics (pillar scores, supply/job signals, and census aggregates) keyed by `period_month` and refreshed via the `flows.refresh_materialized_tables` Prefect flow.
+- `asset_performance` records per-asset scoring, market rollups, and rank-in-market for downstream BI.
+- Both tables are refreshed together, validated with Great Expectations suites (`market_analytics_validation`, `asset_performance_validation`), and exposed through helper views `market_supply_joined` and `asset_scoring_joined` for complex joins.
+- Schedule the refresh with the provided Prefect deployment (`materialized-analytics-refresh`) or trigger manually: `from flows import refresh_materialized_tables; refresh_materialized_tables()`.
 
 Running migrations locally with SQLite:
 

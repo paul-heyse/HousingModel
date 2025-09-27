@@ -2,17 +2,14 @@
 
 from __future__ import annotations
 
-import pandas as pd
 from datetime import date, datetime
-from prefect import flow, task
 from typing import List, Optional
 
-from aker_core.cache import get_cache
-from aker_core.logging import get_logger
-from aker_core.run import RunContext
+import pandas as pd
+
+from aker_core.permits import PermitRecord, get_connector
 from aker_core.validation import validate_data_quality
 from aker_data.lake import DataLake
-from aker_core.permits import get_connector, PermitRecord
 from flows.base import ETLFlow, etl_task, timed_flow, with_run_context
 
 
@@ -29,7 +26,7 @@ class PermitCollectionFlow(ETLFlow):
         state: str,
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
-        permit_types: Optional[List[str]] = None
+        permit_types: Optional[List[str]] = None,
     ) -> List[PermitRecord]:
         """Fetch permits for a specific city."""
         self.logger.info(f"Fetching permits for {city}, {state}")
@@ -41,7 +38,9 @@ class PermitCollectionFlow(ETLFlow):
             if not result.success:
                 raise ValueError(f"Failed to fetch permits for {city}, {state}: {result.errors}")
 
-            self.logger.info(f"Successfully fetched {len(result.permits)} permits for {city}, {state}")
+            self.logger.info(
+                f"Successfully fetched {len(result.permits)} permits for {city}, {state}"
+            )
             return result.permits
 
         except Exception as e:
@@ -62,10 +61,12 @@ class PermitCollectionFlow(ETLFlow):
             df=df,
             suite_name="permits_validation",
             data_asset_name="collected_permits",
-            fail_on_error=True
+            fail_on_error=True,
         )
 
-        self.logger.info(f"Permit data validation passed: {validation_result['successful_expectations']}/{validation_result['total_expectations']} expectations")
+        self.logger.info(
+            f"Permit data validation passed: {validation_result['successful_expectations']}/{validation_result['total_expectations']} expectations"
+        )
         return True
 
     @etl_task("store_permit_data", "Store permit data in data lake")
@@ -80,12 +81,7 @@ class PermitCollectionFlow(ETLFlow):
         df = pd.DataFrame([p.dict() for p in permits])
 
         # Store in data lake with partitioning by state and year
-        result_path = lake.write(
-            df,
-            dataset="permits",
-            as_of=as_of,
-            partition_by=["state"]
-        )
+        result_path = lake.write(df, dataset="permits", as_of=as_of, partition_by=["state"])
 
         self.logger.info(f"Stored {len(permits)} permits to {result_path}")
         return result_path
@@ -119,7 +115,7 @@ class PermitCollectionFlow(ETLFlow):
             "permit_types": type_counts,
             "permit_statuses": status_counts,
             "average_cost": total_cost / total_permits if total_permits > 0 else 0,
-            "collection_date": datetime.now().isoformat()
+            "collection_date": datetime.now().isoformat(),
         }
 
 
@@ -130,7 +126,7 @@ def collect_permits(
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     permit_types: Optional[List[str]] = None,
-    as_of: str = None
+    as_of: str = None,
 ) -> dict:
     """Collect permits from various city/state portals.
 
@@ -189,7 +185,7 @@ def collect_permits(
             total_permits=len(all_permits),
             cities_processed=len(cities_states),
             cities_with_errors=len(collection_errors),
-            as_of=as_of
+            as_of=as_of,
         )
 
         return {
@@ -199,7 +195,7 @@ def collect_permits(
             "collection_errors": collection_errors,
             "storage_path": storage_path,
             "statistics": statistics,
-            "as_of": as_of
+            "as_of": as_of,
         }
 
     except Exception as e:
@@ -209,13 +205,12 @@ def collect_permits(
 
 if __name__ == "__main__":
     # For local testing
-    import sys
 
     # Example: collect permits for NYC and LA
     result = collect_permits(
         cities_states=[("New York", "NY"), ("Los Angeles", "CA")],
         start_date=datetime.now().date(),  # Today for testing
-        end_date=datetime.now().date(),   # Today for testing
-        permit_types=["residential_new", "residential_renovation"]
+        end_date=datetime.now().date(),  # Today for testing
+        permit_types=["residential_new", "residential_renovation"],
     )
     print(f"Permit collection completed: {result}")

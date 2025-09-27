@@ -1,0 +1,55 @@
+--- src/aker_core/validation.py
++++ src/aker_core/validation.py
+@@ -300,33 +300,52 @@ def list_available_suites() -> List[str]:
+         return []
+
+     return [f.stem for f in suites_dir.glob("*.yml")]
+
+
+ def validate_dataset(
+     df: pd.DataFrame,
+     dataset_type: str,
+     run_context: Optional[RunContext] = None
+ ) -> ValidationResult:
+     """Validate a dataset using the appropriate suite.
+
+     Args:
+         df: DataFrame to validate
+         dataset_type: Type of dataset ("acs", "market_data", etc.)
+         run_context: Optional RunContext for lineage tracking
+
+     Returns:
+         ValidationResult with validation results
+     """
+     # Map dataset types to suite names
+     suite_mapping = {
+         "acs": "acs_income_validation",
+         "market_data": "market_data_validation",
+         "census": "acs_income_validation",
++        "market_analytics": "market_analytics_validation",
++        "asset_performance": "asset_performance_validation",
+     }
+
+     suite_name = suite_mapping.get(dataset_type.lower())
+     if not suite_name:
+         raise ValueError(f"No validation suite found for dataset type: {dataset_type}")
+
+     validator = GreatExpectationsValidator(run_context=run_context)
++
++    suite_files = {
++        "acs_income_validation": "acs.yml",
++        "market_data_validation": "market_data.yml",
++        "market_analytics_validation": "market_analytics.yml",
++        "asset_performance_validation": "asset_performance.yml",
++    }
++
++    yaml_name = suite_files.get(suite_name)
++    if yaml_name:
++        yaml_path = get_validation_suites_dir() / yaml_name
++        if yaml_path.exists():
++            try:
++                validator.context.get_expectation_suite(suite_name)
++            except Exception:
++                validator.create_suite_from_yaml(str(yaml_path), suite_name)
++
+     return validator.validate_dataframe(df, suite_name)

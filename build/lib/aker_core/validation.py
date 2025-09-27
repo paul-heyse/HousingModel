@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import json
-import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 from great_expectations.core.batch import BatchRequest
@@ -33,11 +31,15 @@ class ValidationResult:
         for result in self.results:
             for expectation_result in result.results:
                 if not expectation_result.success:
-                    failed.append({
-                        "expectation_type": expectation_result.expectation_config.type,
-                        "column": expectation_result.expectation_config.kwargs.get("column", "N/A"),
-                        "message": str(expectation_result.result)
-                    })
+                    failed.append(
+                        {
+                            "expectation_type": expectation_result.expectation_config.type,
+                            "column": expectation_result.expectation_config.kwargs.get(
+                                "column", "N/A"
+                            ),
+                            "message": str(expectation_result.result),
+                        }
+                    )
         return failed
 
     @property
@@ -53,7 +55,11 @@ class ValidationResult:
     @property
     def failure_rate(self) -> float:
         """Percentage of failed expectations."""
-        return len(self.failed_expectations) / self.total_expectations if self.total_expectations > 0 else 0.0
+        return (
+            len(self.failed_expectations) / self.total_expectations
+            if self.total_expectations > 0
+            else 0.0
+        )
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
@@ -63,14 +69,16 @@ class ValidationResult:
             "successful_expectations": self.successful_expectations,
             "failed_expectations": len(self.failed_expectations),
             "failure_rate": self.failure_rate,
-            "failed_details": self.failed_expectations
+            "failed_details": self.failed_expectations,
         }
 
 
 class GreatExpectationsValidator:
     """Great Expectations validator for data quality validation."""
 
-    def __init__(self, context_root_dir: Optional[str] = None, run_context: Optional[RunContext] = None):
+    def __init__(
+        self, context_root_dir: Optional[str] = None, run_context: Optional[RunContext] = None
+    ):
         """Initialize Great Expectations validator.
 
         Args:
@@ -102,7 +110,7 @@ class GreatExpectationsValidator:
                         "class_name": "PandasDatasource",
                         "data_asset_type": {
                             "class_name": "PandasDataset",
-                        }
+                        },
                     }
                 },
                 "expectations_store_name": "expectations_store",
@@ -115,46 +123,42 @@ class GreatExpectationsValidator:
                         "class_name": "ExpectationsStore",
                         "store_backend": {
                             "class_name": "TupleFilesystemStoreBackend",
-                            "base_directory": "expectations/"
-                        }
+                            "base_directory": "expectations/",
+                        },
                     },
                     "validations_store": {
                         "class_name": "ValidationsStore",
                         "store_backend": {
                             "class_name": "TupleFilesystemStoreBackend",
-                            "base_directory": "validations/"
-                        }
+                            "base_directory": "validations/",
+                        },
                     },
-                    "evaluation_parameter_store": {
-                        "class_name": "EvaluationParameterStore"
-                    },
+                    "evaluation_parameter_store": {"class_name": "EvaluationParameterStore"},
                     "profiler_store": {
                         "class_name": "ProfilerStore",
                         "store_backend": {
                             "class_name": "TupleFilesystemStoreBackend",
-                            "base_directory": "profilers/"
-                        }
+                            "base_directory": "profilers/",
+                        },
                     },
                     "checkpoint_store": {
                         "class_name": "CheckpointStore",
                         "store_backend": {
                             "class_name": "TupleFilesystemStoreBackend",
-                            "base_directory": "checkpoints/"
-                        }
-                    }
-                }
+                            "base_directory": "checkpoints/",
+                        },
+                    },
+                },
             }
             import yaml
-            with open(gx_yml, 'w') as f:
+
+            with open(gx_yml, "w") as f:
                 yaml.dump(gx_config, f, default_flow_style=False)
 
         return FileDataContext(gx_dir)
 
     def validate_dataframe(
-        self,
-        df: pd.DataFrame,
-        suite_name: str,
-        data_asset_name: str = "validation_data"
+        self, df: pd.DataFrame, suite_name: str, data_asset_name: str = "validation_data"
     ) -> ValidationResult:
         """Validate a DataFrame using Great Expectations suite.
 
@@ -199,20 +203,23 @@ class GreatExpectationsValidator:
                     metadata={
                         "suite_name": suite_name,
                         "success": all(result.success for result in results.results),
-                        "total_expectations": len(results.results) if hasattr(results, 'results') else 0,
-                        "failed_expectations": len([r for r in results.results if not r.success]) if hasattr(results, 'results') else 0
-                    }
+                        "total_expectations": (
+                            len(results.results) if hasattr(results, "results") else 0
+                        ),
+                        "failed_expectations": (
+                            len([r for r in results.results if not r.success])
+                            if hasattr(results, "results")
+                            else 0
+                        ),
+                    },
                 )
 
-            return ValidationResult([results] if hasattr(results, 'results') else results.results)
+            return ValidationResult([results] if hasattr(results, "results") else results.results)
 
         except Exception as e:
             self.logger.error(f"Validation failed for suite {suite_name}: {e}")
             self.structlog_logger.error(
-                "validation_failed",
-                suite_name=suite_name,
-                error=str(e),
-                success=False
+                "validation_failed", suite_name=suite_name, error=str(e), success=False
             )
 
             # Return failed result
@@ -220,7 +227,7 @@ class GreatExpectationsValidator:
 
     def _log_validation_results(self, suite_name: str, results: Any):
         """Log validation results to both Prefect and structured logs."""
-        if hasattr(results, 'results') and results.results:
+        if hasattr(results, "results") and results.results:
             total = len(results.results)
             failed = len([r for r in results.results if not r.success])
             success = all(r.success for r in results.results)
@@ -234,15 +241,13 @@ class GreatExpectationsValidator:
                 suite_name=suite_name,
                 success=success,
                 total_expectations=total,
-                failed_expectations=failed
+                failed_expectations=failed,
             )
 
             # Log individual failures
             for result in results.results:
                 if not result.success:
-                    self.logger.warning(
-                        f"Failed expectation: {result.expectation_config.type}"
-                    )
+                    self.logger.warning(f"Failed expectation: {result.expectation_config.type}")
         else:
             self.logger.warning(f"Validation {suite_name}: No results available")
 
@@ -264,14 +269,12 @@ class GreatExpectationsValidator:
             suite_name = yaml_file.stem
 
         # Load and parse YAML
-        with open(yaml_file, 'r') as f:
+        with open(yaml_file, "r") as f:
             suite_config = yaml_file.read_text()
 
         # Create expectation suite from YAML
         suite = ExpectationSuite(
-            expectation_suite_name=suite_name,
-            expectations=[],
-            meta={"created_from_yaml": True}
+            expectation_suite_name=suite_name, expectations=[], meta={"created_from_yaml": True}
         )
 
         # Add to context
@@ -287,7 +290,7 @@ def validate_data_quality(
     suite_name: str,
     data_asset_name: str = "validation_data",
     context_root_dir: Optional[str] = None,
-    fail_on_error: bool = True
+    fail_on_error: bool = True,
 ) -> Dict[str, Any]:
     """Prefect task to validate data quality using Great Expectations.
 
@@ -315,9 +318,7 @@ def validate_data_quality(
 
 @task(name="load_validation_suite", description="Load Great Expectations suite from YAML")
 def load_validation_suite(
-    yaml_path: str,
-    suite_name: Optional[str] = None,
-    context_root_dir: Optional[str] = None
+    yaml_path: str, suite_name: Optional[str] = None, context_root_dir: Optional[str] = None
 ) -> str:
     """Prefect task to load expectation suite from YAML file.
 
@@ -348,9 +349,7 @@ def list_available_suites() -> List[str]:
 
 
 def validate_dataset(
-    df: pd.DataFrame,
-    dataset_type: str,
-    run_context: Optional[RunContext] = None
+    df: pd.DataFrame, dataset_type: str, run_context: Optional[RunContext] = None
 ) -> ValidationResult:
     """Validate a dataset using the appropriate suite.
 

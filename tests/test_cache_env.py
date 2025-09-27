@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 import tempfile
 from pathlib import Path
 
@@ -16,6 +15,8 @@ def test_cache_base_path_env_override(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("AKER_CACHE_PATH", str(override_path))
 
         cache = Cache(base_path=None)
+        assert cache.base_path == override_path
+
         df = pd.DataFrame({"id": [1], "value": [2]})
 
         stored = cache.store_local(df, "dataset", "data.parquet", data_type="parquet")
@@ -34,9 +35,6 @@ def test_cache_json_storage_metadata(tmp_path: Path) -> None:
     with open(stored_path, "r", encoding="utf-8") as f:
         assert json.load(f) == payload
 
-    metadata_path = stored_path.with_suffix(".metadata.json")
-    with open(metadata_path, "r", encoding="utf-8") as f:
-        metadata = json.load(f)
+    metadata = Cache.read_metadata(stored_path)
     assert metadata["data_type"] == "json"
     assert metadata["original_filename"] == "config.json"
-

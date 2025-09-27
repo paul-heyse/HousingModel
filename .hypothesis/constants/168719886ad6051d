@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_core/cache.py
+# hypothesis_version: 6.140.2
+
+[0.1, 60.0, 200, 300, 301, 302, 304, 404, 429, 500, 502, 503, 504, 3600, '%Y%m%d_%H%M%S', '.', '.json', '.metadata.json', '30d', '8.8.8.8', 'AKER_CACHE_PATH', 'ETag', 'If-Modified-Since', 'If-None-Match', 'Last-Modified', 'aker_cache', 'backoff_seconds', 'cache_hit', 'cache_miss', 'cache_store', 'connectivity', 'consecutive_failures', 'content', 'created_at', 'd', 'data_type', 'etag', 'etl_key', 'filename', 'gtfs', 'h', 'headers', 'http://', 'http_cache', 'https://', 'json', 'last_modified', 'm', 'offline_mode', 'original_filename', 'osm', 'parquet', 'r', 'rate_limit_failure', 'rate_limit_success', 'rate_limiting', 's', 'sqlite', 'status_code', 'to_parquet', 'tokens_remaining', 'ttl_seconds', 'url', 'utf-8', 'w']

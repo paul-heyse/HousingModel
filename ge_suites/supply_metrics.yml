@@ -1,0 +1,118 @@
+name: supply_metrics
+version: 1.0.0
+template_name:
+module_name: great_expectations.data_context.templates
+class_name: SuiteTemplateGenerator
+metadata:
+  created_by: Aker Property Model
+  purpose: Validate supply constraint metrics data quality
+  domain: supply_calculators
+
+expectations:
+  - expectation_type: expect_column_values_to_be_between
+    kwargs:
+      column: elasticity_idx
+      min_value: 0
+      max_value: 200  # Reasonable upper bound for permits per 1k households
+      mostly: 0.95  # Allow 5% outliers
+
+  - expectation_type: expect_column_values_to_be_between
+    kwargs:
+      column: vacancy_rate
+      min_value: 0
+      max_value: 100
+      mostly: 0.99  # Very strict for percentage data
+
+  - expectation_type: expect_column_values_to_be_between
+    kwargs:
+      column: leaseup_tom_days
+      min_value: 0
+      max_value: 365  # Reasonable upper bound for days on market
+      mostly: 0.95
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: msa_id
+      mostly: 1.0
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: data_vintage
+      mostly: 1.0
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: calculation_timestamp
+      mostly: 1.0
+
+  # Cross-field validations
+  - expectation_type: expect_column_pair_values_to_be_greater_than
+    kwargs:
+      column_A: elasticity_idx
+      column_B: 0
+      or_equal: true
+
+  # Statistical validations
+  - expectation_type: expect_column_stdev_to_be_between
+    kwargs:
+      column: elasticity_idx
+      min_value: 0
+      max_value: 50  # Reasonable standard deviation
+
+  - expectation_type: expect_column_stdev_to_be_between
+    kwargs:
+      column: vacancy_rate
+      min_value: 0
+      max_value: 10  # Reasonable standard deviation for vacancy rates
+
+  # Data completeness
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: elasticity_idx
+      mostly: 0.8  # Allow some missing elasticity data
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: vacancy_rate
+      mostly: 0.8  # Allow some missing vacancy data
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: leaseup_tom_days
+      mostly: 0.7  # Lease-up data may be less complete
+
+  # Temporal consistency
+  - expectation_type: expect_column_values_to_be_increasing
+    kwargs:
+      column: calculation_timestamp
+      mostly: 0.9  # Allow some out-of-order timestamps
+
+  # MSA ID format validation
+  - expectation_type: expect_column_values_to_match_regex
+    kwargs:
+      column: msa_id
+      regex: "^[A-Z0-9]{5,12}$"  # MSA ID format
+      mostly: 1.0
+
+  # Data vintage format validation
+  - expectation_type: expect_column_values_to_match_regex
+    kwargs:
+      column: data_vintage
+      regex: "^\\d{4}-\\d{2}-\\d{2}$"  # YYYY-MM-DD format
+      mostly: 0.95
+
+  # Inverse relationship validation (higher elasticity should correlate with lower constraint scores)
+  - expectation_type: expect_column_pair_values_to_be_less_than
+    kwargs:
+      column_A: elasticity_idx
+      column_B: 50  # If elasticity > 50, market is very supply-responsive
+      or_equal: true
+      mostly: 0.8  # Allow some exceptions
+
+  # Vacancy rate reasonableness (not too extreme)
+  - expectation_type: expect_column_values_to_be_between
+    kwargs:
+      column: vacancy_rate
+      min_value: 1  # Very low vacancy might indicate data issues
+      max_value: 30  # Very high vacancy might indicate data issues
+      mostly: 0.9

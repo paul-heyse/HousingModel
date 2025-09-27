@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_geo/terrain/analysis.py
+# hypothesis_version: 6.140.2
+
+[-1.0, 0.0, 5.0, 10.0, 12.0, 15.0, 25.0, 100.0, 'commercial', 'extreme', 'flat', 'index', 'inf', 'mixed_use', 'moderate', 'nan', 'residential', 'slope_cell_count', 'slope_confidence', 'slope_max_pct', 'slope_mean_pct', 'slope_std_pct', 'steep']

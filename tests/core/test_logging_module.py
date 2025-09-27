@@ -54,9 +54,7 @@ def test_log_timing_records_duration_and_metric():
     assert output["duration_ms"] >= 0
     assert "cpu_time_ms" in output
 
-    histogram = aker_logging.get_histogram_metric(
-        "heavy_step_seconds", label_names=("stage",)
-    )
+    histogram = aker_logging.get_histogram_metric("heavy_step_seconds", label_names=("stage",))
     assert histogram is not None
     metric_family = histogram.collect()[0]
     count_value = next(
@@ -186,16 +184,15 @@ def test_log_classified_error_with_exception_records_message():
 
 
 def test_generate_metrics_returns_exposition():
-    data = aker_logging.generate_metrics()
     registry = aker_logging.get_metrics_registry()
 
     if registry is None:
-        assert data == b""
+        with pytest.raises(RuntimeError):
+            aker_logging.generate_metrics()
     else:
+        data = aker_logging.generate_metrics()
         assert isinstance(data, (bytes, bytearray))
-        # Registry exists, but no metrics may have been recorded yet
-        # The function should return valid exposition format (even if empty)
-        assert data == b"" or b"# HELP" in data or len(data) > 0
+        assert data.startswith(b"# HELP") or data.startswith(b"# TYPE")
 
 
 def test_prometheus_helpers_invoke_registry(monkeypatch: pytest.MonkeyPatch) -> None:

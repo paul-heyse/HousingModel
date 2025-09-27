@@ -1,0 +1,19 @@
+## 1. Implementation
+- [ ] 1.1 Create `aker_core.connectors` package with base connector architecture.
+- [ ] 1.2 Implement `CensusACSConnector` for ACS income and demographic data.
+- [ ] 1.3 Implement `BLSConnector` for QCEW and CES employment data.
+- [ ] 1.4 Implement `BEAConnector` for regional economic accounts.
+- [ ] 1.5 Implement `IRSFloorsConnector` for IRS migration flow data.
+- [ ] 1.6 Implement `BFSConnector` for business formation statistics.
+- [ ] 1.7 Implement `OSMConnector` for OpenStreetMap POIs and network data.
+- [ ] 1.8 Implement `GTFSConnector` for transit feed data.
+- [ ] 1.9 Implement `EPAAirNowConnector` for air quality monitoring data.
+- [ ] 1.10 Implement `NOAAHMSConnector` for smoke plume data.
+- [ ] 1.11 Implement `USGSDEMConnector` for elevation and terrain data.
+- [ ] 1.12 Implement `FEMAConnector` for flood hazard data.
+- [ ] 1.13 Implement `LODESConnector` for workplace area characteristics.
+- [ ] 1.14 Implement optional commercial connectors (Zillow, CoStar, SafeGraph).
+- [ ] 1.15 Add comprehensive tests with mocked HTTP responses and real sample data.
+- [ ] 1.16 Integrate with existing cache, data lake, and lineage systems.
+- [ ] 1.17 Create connector registry and discovery mechanism.
+- [ ] 1.18 Add monitoring and alerting for connector health and data quality.

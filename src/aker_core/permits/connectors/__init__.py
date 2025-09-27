@@ -1,6 +1,6 @@
 """City-specific permit portal connectors."""
 
-from .nyc import NYCConnector
 from .la import LAConnector
+from .nyc import NYCConnector
 
 __all__ = ["NYCConnector", "LAConnector"]

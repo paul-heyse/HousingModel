@@ -1,0 +1,77 @@
+name: asset_performance_validation
+version: 1.0.0
+description: "Great Expectations suite for asset performance data validation"
+
+datasources:
+  - name: pandas
+    class_name: PandasDatasource
+    data_asset_type:
+      class_name: PandasDataset
+
+expectation_suite_name: asset_performance_suite
+
+meta:
+  created_by: HousingModel ETL
+  dataset_type: asset_performance
+  validation_level: strict
+
+expectations:
+  - expectation_type: expect_table_columns_to_match_set
+    kwargs:
+      column_set:
+        - asset_id
+        - msa_id
+        - units
+        - year_built
+        - score
+        - market_composite_score
+        - rank_in_market
+        - period_month
+        - refreshed_at
+        - run_id
+    meta:
+      description: "Ensure all asset performance columns exist"
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: asset_id
+    meta:
+      description: "Asset identifier is required"
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: msa_id
+    meta:
+      description: "Asset must be linked to a market"
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: period_month
+    meta:
+      description: "Partition column must be populated"
+
+  - expectation_type: expect_column_values_to_be_between
+    kwargs:
+      column: score
+      min_value: 0
+      max_value: 100
+      allow_cross_type_comparisons: true
+    meta:
+      description: "Performance score is normalised"
+
+  - expectation_type: expect_column_values_to_be_between
+    kwargs:
+      column: rank_in_market
+      min_value: 1
+      allow_cross_type_comparisons: true
+    meta:
+      description: "Rank must start at 1"
+
+  - expectation_type: expect_column_values_to_be_between
+    kwargs:
+      column: units
+      min_value: 0
+      mostly: 0.95
+      allow_cross_type_comparisons: true
+    meta:
+      description: "Unit counts cannot be negative"

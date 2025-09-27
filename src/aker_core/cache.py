@@ -263,6 +263,14 @@ class Cache:
 
         return str(file_path)
 
+    @staticmethod
+    def read_metadata(path: Union[str, Path]) -> Dict[str, Any]:
+        """Return metadata stored alongside a cache artifact."""
+
+        metadata_path = Path(path).with_suffix(".metadata.json")
+        with open(metadata_path, "r", encoding="utf-8") as metadata_file:
+            return json.load(metadata_file)
+
     def _build_cache_key(self, url: str, etl_key: Optional[str] = None) -> str:
         """Build cache key from URL and optional ETL key."""
         key_data = {"url": url}

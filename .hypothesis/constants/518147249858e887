@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_core/expansions/entities.py
+# hypothesis_version: 6.140.2
+
+[0.0, 0.3, 0.4, 0.5, 0.6, 0.75, 0.8, 0.9, ',. ', '.,', 'Biotech', 'Corporation', 'Energy', 'EntityExtractor', 'LOWER', 'Logistics', 'Manufacturing', 'ORG', 'Pharmaceutical', 'Technology', 'USA', '[A-Z][a-zA-Z]+', 'biotech', 'city', 'country', 'en', 'energy', 'entity_ruler', 'inc', 'label', 'llc', 'logistics', 'manufacturing', 'pattern', 'pharma', 'raw', 'state', 'technology', 'warehouse']

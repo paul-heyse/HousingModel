@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import pandas as pd
-from prefect import flow, task
 
 from aker_core.cache import fetch
 from aker_core.validation import validate_data_quality
 from aker_data.lake import DataLake
+
 from .base import ETLFlow, etl_task, timed_flow, with_run_context
 
 
@@ -27,7 +27,7 @@ class MarketDataRefreshFlow(ETLFlow):
         params = {
             "get": "NAME,B19013_001E,B01003_001E",
             "for": "metropolitan statistical area/micropolitan statistical area:*",
-            "key": "YOUR_CENSUS_API_KEY"  # This should come from settings
+            "key": "YOUR_CENSUS_API_KEY",  # This should come from settings
         }
 
         response = fetch(url, params=params, ttl="7d")  # Cache for 7 days
@@ -42,7 +42,7 @@ class MarketDataRefreshFlow(ETLFlow):
             "year": year,
             "data": data[1:],  # Skip header row
             "headers": data[0],
-            "source": "census_api"
+            "source": "census_api",
         }
 
     @etl_task("transform_census_data", "Transform raw census data into DataFrame")
@@ -55,19 +55,19 @@ class MarketDataRefreshFlow(ETLFlow):
         df = pd.DataFrame(data, columns=headers)
 
         # Clean column names
-        df.columns = df.columns.str.lower().str.replace(' ', '_').str.replace(',', '')
+        df.columns = df.columns.str.lower().str.replace(" ", "_").str.replace(",", "")
 
         # Convert data types
-        df['b19013_001e'] = pd.to_numeric(df['b19013_001e'], errors='coerce')  # Median income
-        df['b01003_001e'] = pd.to_numeric(df['b01003_001e'], errors='coerce')  # Population
+        df["b19013_001e"] = pd.to_numeric(df["b19013_001e"], errors="coerce")  # Median income
+        df["b01003_001e"] = pd.to_numeric(df["b01003_001e"], errors="coerce")  # Population
 
         # Add metadata columns
-        df['data_year'] = census_data["year"]
-        df['source'] = census_data["source"]
-        df['ingested_at'] = pd.Timestamp.now()
+        df["data_year"] = census_data["year"]
+        df["source"] = census_data["source"]
+        df["ingested_at"] = pd.Timestamp.now()
 
         # Filter out invalid records
-        df = df.dropna(subset=['b19013_001e', 'b01003_001e'])
+        df = df.dropna(subset=["b19013_001e", "b01003_001e"])
 
         self.logger.info(f"Transformed {len(df)} valid records")
         return df
@@ -79,10 +79,7 @@ class MarketDataRefreshFlow(ETLFlow):
 
         # Store in data lake with partitioning
         result_path = lake.write(
-            df,
-            dataset="census_income",
-            as_of=as_of,
-            partition_by=["data_year"]
+            df, dataset="census_income", as_of=as_of, partition_by=["data_year"]
         )
 
         self.logger.info(f"Stored market data to {result_path}")
@@ -96,10 +93,12 @@ class MarketDataRefreshFlow(ETLFlow):
             df=df,
             suite_name="acs_income_validation",
             data_asset_name="census_income_data",
-            fail_on_error=True
+            fail_on_error=True,
         )
 
-        self.logger.info(f"Great Expectations validation passed: {validation_result['successful_expectations']}/{validation_result['total_expectations']} expectations")
+        self.logger.info(
+            f"Great Expectations validation passed: {validation_result['successful_expectations']}/{validation_result['total_expectations']} expectations"
+        )
         return True
 
 
@@ -117,6 +116,7 @@ def refresh_market_data(year: str = "2022", as_of: str = None) -> str:
     """
     if as_of is None:
         from datetime import datetime
+
         as_of = datetime.now().strftime("%Y-%m")
 
     flow = MarketDataRefreshFlow()

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from abc import ABC, abstractmethod
 from datetime import date, datetime, timedelta
 from typing import List, Optional, Union
@@ -128,29 +127,28 @@ class PermitsConnector(ABC):
                 permit_record = self._convert_to_permit_record(raw_permit)
                 normalized.append(permit_record)
             except Exception as e:
-                self.logger.error(f"Failed to normalize permit {raw_permit.get('id', 'unknown')}: {e}")
+                self.logger.error(
+                    f"Failed to normalize permit {raw_permit.get('id', 'unknown')}: {e}"
+                )
                 # Log processing error
                 if self.run_context:
                     self.run_context.log_data_lake_operation(
                         operation="permit_normalization_error",
                         dataset=f"permits_{self.city}_{self.state}",
-                        path=str(raw_permit.get('id', 'unknown')),
-                        metadata={"error": str(e)}
+                        path=str(raw_permit.get("id", "unknown")),
+                        metadata={"error": str(e)},
                     )
 
         return normalized
 
-    @abstractmethod
     def _convert_to_permit_record(self, raw_permit: dict) -> PermitRecord:
         """Convert raw permit data to standardized PermitRecord.
 
-        Args:
-            raw_permit: Raw permit dictionary from source system
-
-        Returns:
-            Standardized PermitRecord
+        Subclasses should override this. The default implementation raises to
+        make the requirement explicit while still allowing simple test doubles.
         """
-        pass
+
+        raise NotImplementedError("Connector must implement _convert_to_permit_record")
 
     def _create_address(self, address_data: dict) -> "Address":
         """Create Address object from raw address data."""
@@ -180,7 +178,7 @@ class PermitsConnector(ABC):
                     continue
 
             # Try parsing as datetime and convert to date
-            dt = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+            dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
             return dt.date()
 
         except Exception:
@@ -214,7 +212,7 @@ class PermitsConnector(ABC):
         self.logger.info(
             f"Starting permit collection for {self.city}, {self.state}",
             start_date=start_date.isoformat(),
-            end_date=end_date.isoformat()
+            end_date=end_date.isoformat(),
         )
 
         if self.run_context:
@@ -227,7 +225,7 @@ class PermitsConnector(ABC):
                     "state": self.state,
                     "start_date": start_date.isoformat(),
                     "end_date": end_date.isoformat(),
-                }
+                },
             )
 
     def _log_collection_complete(self, result: PermitCollectionResult):
@@ -236,7 +234,7 @@ class PermitsConnector(ABC):
             f"Completed permit collection for {self.city}, {self.state}",
             total_permits=result.total_permits,
             errors=len(result.errors),
-            success=result.success
+            success=result.success,
         )
 
         if self.run_context:
@@ -244,11 +242,13 @@ class PermitsConnector(ABC):
                 operation="permit_collection_complete",
                 dataset=f"permits_{self.city}_{self.state}",
                 path="collection_result",
-                metadata=result.to_dict()
+                metadata=result.to_dict(),
             )
 
 
-def get_connector(city: str, state: str, run_context: Optional[RunContext] = None) -> PermitsConnector:
+def get_connector(
+    city: str, state: str, run_context: Optional[RunContext] = None
+) -> PermitsConnector:
     """Get the appropriate connector for a city/state combination.
 
     Args:

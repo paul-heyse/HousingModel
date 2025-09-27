@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import functools
 import time
-from typing import Any, Callable, Dict, Optional, TypeVar
+from typing import Any, Callable, Optional, TypeVar
 
 from prefect import flow, task
 from prefect.context import get_run_context as prefect_get_run_context
 from prefect.logging import get_logger
 
-from aker_core.cache import fetch, get_cache
+from aker_core.cache import get_cache
 from aker_core.config import get_settings
 from aker_core.logging import get_logger as get_structlog_logger
 from aker_core.run import RunContext
@@ -36,6 +36,7 @@ except Exception:
 
 def with_run_context(func: F) -> F:
     """Decorator to provide RunContext for database operations."""
+
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         # Only set up run context if components are available
@@ -51,6 +52,7 @@ def with_run_context(func: F) -> F:
             run_ctx = None
 
         if run_ctx is None:
+
             def session_factory():
                 from sqlalchemy import create_engine
                 from sqlalchemy.orm import sessionmaker
@@ -85,6 +87,7 @@ def with_run_context(func: F) -> F:
 
 def etl_task(name: str, description: str = ""):
     """Decorator for ETL tasks with enhanced logging and error handling."""
+
     def decorator(func: F) -> F:
         @task(name=name, description=description, retries=2, retry_delay_seconds=30)
         @functools.wraps(func)
@@ -96,6 +99,7 @@ def etl_task(name: str, description: str = ""):
                 task_logger = get_logger(f"{__name__}.{name}")
             except Exception:
                 import logging
+
                 task_logger = logging.getLogger(f"{__name__}.{name}")
 
             try:
@@ -103,48 +107,42 @@ def etl_task(name: str, description: str = ""):
                 result = func(*args, **kwargs)
                 duration = time.time() - start_time
 
-                task_logger.info(
-                    f"Completed task: {name}",
-                    duration_seconds=duration,
-                    success=True
-                )
+                task_logger.info(f"Completed task: {name}", duration_seconds=duration, success=True)
 
                 # Log to structured logger if available
                 if _structlog_logger:
                     _structlog_logger.info(
-                        f"etl_task_completed",
+                        "etl_task_completed",
                         task=name,
                         duration_ms=int(duration * 1000),
-                        success=True
+                        success=True,
                     )
 
                 return result
 
             except Exception as e:
                 duration = time.time() - start_time
-                task_logger.error(
-                    f"Failed task: {name}",
-                    error=str(e),
-                    duration_seconds=duration
-                )
+                task_logger.error(f"Failed task: {name}", error=str(e), duration_seconds=duration)
 
                 # Log to structured logger if available
                 if _structlog_logger:
                     _structlog_logger.error(
-                        f"etl_task_failed",
+                        "etl_task_failed",
                         task=name,
                         error=str(e),
                         duration_ms=int(duration * 1000),
-                        success=False
+                        success=False,
                     )
                 raise
 
         return wrapper
+
     return decorator
 
 
 def timed_flow(func: F) -> F:
     """Decorator to add timing and logging to flows."""
+
     @flow
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
@@ -157,6 +155,7 @@ def timed_flow(func: F) -> F:
                 _logger.info(f"Starting flow: {flow_name}")
         except Exception:
             import logging
+
             logging.info(f"Starting flow: {flow_name}")
 
         try:
@@ -166,21 +165,17 @@ def timed_flow(func: F) -> F:
             try:
                 if _logger:
                     _logger.info(
-                        f"Completed flow: {flow_name}",
-                        duration_seconds=duration,
-                        success=True
+                        f"Completed flow: {flow_name}", duration_seconds=duration, success=True
                     )
             except Exception:
                 import logging
+
                 logging.info(f"Completed flow: {flow_name} in {duration:.2f}s")
 
             # Log to structured logger if available
             if _structlog_logger:
                 _structlog_logger.info(
-                    f"flow_completed",
-                    flow=flow_name,
-                    duration_ms=int(duration * 1000),
-                    success=True
+                    "flow_completed", flow=flow_name, duration_ms=int(duration * 1000), success=True
                 )
 
             return result
@@ -191,24 +186,26 @@ def timed_flow(func: F) -> F:
             try:
                 if _logger:
                     _logger.error(
-                        f"Failed flow: {flow_name}",
-                        error=str(e),
-                        duration_seconds=duration
+                        f"Failed flow: {flow_name}", error=str(e), duration_seconds=duration
                     )
             except Exception:
                 import logging
+
                 logging.error(f"Failed flow: {flow_name} after {duration:.2f}s: {e}")
 
             # Log to structured logger if available
             if _structlog_logger:
                 _structlog_logger.error(
-                    f"flow_failed",
+                    "flow_failed",
                     flow=flow_name,
                     error=str(e),
                     duration_ms=int(duration * 1000),
-                    success=False
+                    success=False,
                 )
             raise
+
+    # Provide compatibility attribute expected by tests/utilities
+    setattr(wrapper, "is_flow", True)
 
     return wrapper
 
@@ -223,7 +220,6 @@ def get_current_run_context() -> Optional[RunContext]:
         return None
 
 
-
 # Backwards compatibility alias for existing imports
 get_run_context = get_current_run_context
 
@@ -231,14 +227,11 @@ get_run_context = get_current_run_context
 def log_etl_event(event: str, **kwargs):
     """Log an ETL event with structured data."""
     if _structlog_logger:
-        _structlog_logger.info(
-            f"etl_{event}",
-            event=event,
-            **kwargs
-        )
+        _structlog_logger.info(f"etl_{event}", event=event, **kwargs)
     else:
         # Fallback to standard logging
         import logging
+
         logger = logging.getLogger(__name__)
         logger.info(f"ETL event: {event}", extra=kwargs)
 
@@ -255,6 +248,7 @@ class ETLFlow:
             self.logger = get_logger(f"flows.{name}")
         except Exception:
             import logging
+
             self.logger = logging.getLogger(f"flows.{name}")
 
     def log_start(self, **context):
@@ -264,30 +258,14 @@ class ETLFlow:
 
     def log_complete(self, duration: float, **context):
         """Log flow completion."""
-        self.logger.info(
-            f"Completed ETL flow: {self.name}",
-            duration_seconds=duration,
-            **context
-        )
-        log_etl_event(
-            "flow_complete",
-            flow=self.name,
-            duration_ms=int(duration * 1000),
-            **context
-        )
+        self.logger.info(f"Completed ETL flow: {self.name}", duration_seconds=duration, **context)
+        log_etl_event("flow_complete", flow=self.name, duration_ms=int(duration * 1000), **context)
 
     def log_error(self, error: str, duration: float, **context):
         """Log flow error."""
         self.logger.error(
-            f"Failed ETL flow: {self.name}",
-            error=error,
-            duration_seconds=duration,
-            **context
+            f"Failed ETL flow: {self.name}", error=error, duration_seconds=duration, **context
         )
         log_etl_event(
-            "flow_error",
-            flow=self.name,
-            error=error,
-            duration_ms=int(duration * 1000),
-            **context
+            "flow_error", flow=self.name, error=error, duration_ms=int(duration * 1000), **context
         )

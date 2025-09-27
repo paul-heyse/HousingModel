@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_core/database/supply.py
+# hypothesis_version: 6.140.2
+
+['avg_elasticity', 'avg_leaseup_days', 'avg_vacancy', 'earliest_calc', 'latest_calc', 'total_records']

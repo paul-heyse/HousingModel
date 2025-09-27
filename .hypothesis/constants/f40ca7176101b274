@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_core/logging.py
+# hypothesis_version: 6.140.2
+
+[1.0, 1000.0, 1024.0, 8000, '%(message)s', '0.0.0.0', ':', 'BoundLogger', 'Duration in seconds', 'ErrorClassification', 'ErrorSeverity', '_DEFAULT_INFO_METRIC', '_REGISTRY', 'aker_build_info', 'category', 'classify_error', 'configure_logging', 'count', 'cpu_time_ms', 'critical', 'duration_ms', 'error', 'error_code', 'error_type', 'exception', 'general', 'generate_metrics', 'get_counter_metric', 'get_histogram_metric', 'get_logger', 'get_metrics_registry', 'increment_counter', 'info', 'iso', 'log_classified_error', 'log_counter', 'log_timing', 'make_metrics_app', 'memory_delta_kb', 'message', 'observe_duration', 'parse_log_line', 'reset_logging', 'severity', 'start_metrics_server', 'timestamp', 'unknown', 'version', 'warning']

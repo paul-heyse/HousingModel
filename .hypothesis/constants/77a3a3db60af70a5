@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_geo/terrain/dem.py
+# hypothesis_version: 6.140.2
+
+[0.0, 0.5, 100.0, 'EPSG:4326', 'crs', 'pixel_size', 'valid_ratio']
