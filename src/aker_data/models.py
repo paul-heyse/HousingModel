@@ -3,7 +3,19 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Optional
 
-from sqlalchemy import JSON, Date, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    JSON,
+    CheckConstraint,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -169,6 +181,75 @@ class PillarScores(Base):
     )
 
 
+class AmenityProgram(Base):
+    __tablename__ = "amenity_program"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    asset_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("assets.asset_id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    amenity_code: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    amenity_name: Mapped[Optional[str]] = mapped_column(String(120))
+    capex: Mapped[Optional[float]] = mapped_column(Float)
+    opex_monthly: Mapped[Optional[float]] = mapped_column(Float)
+    rent_premium_per_unit: Mapped[Optional[float]] = mapped_column(Float)
+    retention_delta_bps: Mapped[Optional[float]] = mapped_column(Float)
+    membership_revenue_monthly: Mapped[Optional[float]] = mapped_column(Float)
+    avg_monthly_rent: Mapped[Optional[float]] = mapped_column(Float)
+    utilization_rate: Mapped[Optional[float]] = mapped_column(Float)
+    payback_months: Mapped[Optional[float]] = mapped_column(Float)
+    noi_delta_annual: Mapped[Optional[float]] = mapped_column(Float)
+    data_vintage: Mapped[Optional[str]] = mapped_column(String(20))
+    run_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("runs.run_id", ondelete="SET NULL"), index=True
+    )
+    calculation_method: Mapped[Optional[str]] = mapped_column(String(32))
+    assumptions: Mapped[Optional[dict[str, object]]] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "asset_id", "amenity_code", name="uq_amenity_program_asset_code"
+        ),
+    )
+
+
+class RiskProfile(Base):
+    __tablename__ = "risk_profile"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    subject_type: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    subject_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    peril: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    severity_idx: Mapped[float] = mapped_column(Float, nullable=False)
+    multiplier: Mapped[float] = mapped_column(Float, nullable=False)
+    deductible: Mapped[Optional[dict[str, float | str]]] = mapped_column(JSON)
+    data_vintage: Mapped[Optional[str]] = mapped_column(String(20))
+    run_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("runs.run_id", ondelete="SET NULL"), index=True
+    )
+    calculation_method: Mapped[Optional[str]] = mapped_column(String(32))
+    source: Mapped[Optional[str]] = mapped_column(String(120))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+    notes: Mapped[Optional[str]] = mapped_column(Text)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "subject_type", "subject_id", "peril", name="uq_risk_profile_subject_peril"
+        ),
+    )
+
+
 class Assets(Base):
     __tablename__ = "assets"
 
@@ -229,6 +310,8 @@ class MarketAnalytics(Base):
     vacancy_rate: Mapped[Optional[float]] = mapped_column(Float)
     permit_per_1k: Mapped[Optional[float]] = mapped_column(Float)
     tech_cagr: Mapped[Optional[float]] = mapped_column(Float)
+    walk_15_ct: Mapped[Optional[int]] = mapped_column(Integer)
+    trail_mi_pc: Mapped[Optional[float]] = mapped_column(Float)
     refreshed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     run_id: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("runs.run_id", ondelete="SET NULL")
@@ -251,7 +334,77 @@ class AssetPerformance(Base):
     score: Mapped[Optional[float]] = mapped_column(Float, index=True)
     market_composite_score: Mapped[Optional[float]] = mapped_column(Float)
     rank_in_market: Mapped[Optional[int]] = mapped_column(Integer)
-    refreshed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    refreshed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow
+    )
     run_id: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("runs.run_id", ondelete="SET NULL")
     )
+
+
+class AssetFit(Base):
+    __tablename__ = "asset_fit"
+
+    asset_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("assets.asset_id", ondelete="CASCADE"), primary_key=True
+    )
+    msa_id: Mapped[Optional[str]] = mapped_column(
+        String(12), ForeignKey("markets.msa_id", ondelete="CASCADE"), index=True
+    )
+    product_type: Mapped[Optional[str]] = mapped_column(String(40))
+    context_label: Mapped[Optional[str]] = mapped_column(String(40))
+    fit_score: Mapped[Optional[float]] = mapped_column(Float, index=True)
+    flags: Mapped[Optional[dict]] = mapped_column(JSON)
+    inputs: Mapped[Optional[dict]] = mapped_column(JSON)
+    ruleset_version: Mapped[Optional[str]] = mapped_column(String(20))
+    evaluated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    run_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("runs.run_id", ondelete="SET NULL"), index=True
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "fit_score IS NULL OR (fit_score >= 0 AND fit_score <= 100)",
+            name="ck_asset_fit_score_range",
+        ),
+    )
+
+
+class OpsModel(Base):
+    __tablename__ = "ops_model"
+
+    asset_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("assets.asset_id", ondelete="CASCADE"), primary_key=True
+    )
+    nps: Mapped[Optional[int]] = mapped_column(Integer)
+    reputation_idx: Mapped[Optional[float]] = mapped_column(Float)
+    max_discount_pct: Mapped[Optional[float]] = mapped_column(Float)
+    max_concession_days: Mapped[Optional[int]] = mapped_column(Integer)
+    concession_days_saved: Mapped[Optional[int]] = mapped_column(Integer)
+    cadence_plan: Mapped[Optional[str]] = mapped_column(String(120))
+
+
+class StateRules(Base):
+    __tablename__ = "state_rules"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    state_code: Mapped[str] = mapped_column(String(2), nullable=False, index=True)
+    rule_version: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    rule_snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    context_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    applied_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+
+
+class DealArchetype(Base):
+    __tablename__ = "deal_archetype"
+
+    scope_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(80), nullable=False)
+    cost: Mapped[Optional[float]] = mapped_column(Float)
+    lift: Mapped[Optional[float]] = mapped_column(Float)
+    payback_mo: Mapped[Optional[int]] = mapped_column(Integer)
+    downtime_wk: Mapped[Optional[int]] = mapped_column(Integer)
+    retention_bps: Mapped[Optional[int]] = mapped_column(Integer)
+    retail_underwrite_mode: Mapped[Optional[str]] = mapped_column(String(30))

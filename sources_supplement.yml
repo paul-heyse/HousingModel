@@ -1,0 +1,646 @@
+version: 1
+updated: '2025-09-27'
+note: Supplemental sources to augment your existing /mnt/data/sources.yml. Merge `sources` lists by `id`.
+sources:
+- id: census_tigerweb
+  name: US Census TIGERweb (boundaries via ArcGIS)
+  category: boundaries
+  enabled: true
+  base_url: https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb
+  docs_url: https://tigerweb.geo.census.gov/arcgis/rest/services
+  auth:
+    type: none
+  endpoints:
+  - name: states
+    method: GET
+    url_template: /State_TIGERweb/MapServer/28/query?where=1%3D1&outFields=*&f=json
+  - name: counties
+    method: GET
+    url_template: /Counties_Cartographic/MapServer/2/query?where=1%3D1&outFields=*&f=json
+  - name: tracts
+    method: GET
+    url_template: /Tracts_Blocks/MapServer/2/query?where=STATE%3D%27{state_fips}%27&outFields=*&f=json
+  - name: places
+    method: GET
+    url_template: /Places_CouSub/MapServer/0/query?where=STATE%3D%27{state_fips}%27&outFields=*&f=json
+  - name: zcta5
+    method: GET
+    url_template: /ZCTA5/MapServer/0/query?where=1%3D1&outFields=*&f=json
+  cadence: Annual (updated after each decennial/ACS vintages)
+  datasets_written:
+  - boundaries_state
+  - boundaries_county
+  - boundaries_tract
+  - boundaries_place
+  - boundaries_zcta
+- id: census_geocoder
+  name: US Census Geocoder API
+  category: geocoding
+  enabled: true
+  base_url: https://geocoding.geo.census.gov/geocoder
+  docs_url: https://geocoding.geo.census.gov/geocoder/Geocoding_Services_API.html
+  auth:
+    type: none
+  endpoints:
+  - name: single_line
+    method: GET
+    url_template: /locations/onelineaddress?address={address}&benchmark=Public_AR_Current&format=json
+  - name: reverse
+    method: GET
+    url_template: /locations/coordinates?x={lon}&y={lat}&benchmark=Public_AR_Current&format=json
+  - name: batch
+    method: POST
+    url_template: /geographies/addressesbatch?benchmark=Public_AR_Current&vintage=Current_Census&format=json
+  rate_limits: None published; fair-use expected.
+  cadence: On demand
+  datasets_written:
+  - geocode_census
+- id: osm_nominatim
+  name: OpenStreetMap Nominatim (geocoding)
+  category: geocoding
+  enabled: false
+  base_url: https://nominatim.openstreetmap.org
+  docs_url: https://nominatim.org/release-docs/develop/api/Overview/
+  auth:
+    type: none
+  endpoints:
+  - name: search
+    method: GET
+    url_template: /search?q={query}&format=json&addressdetails=1&limit=10&email={contact_email}
+  - name: reverse
+    method: GET
+    url_template: /reverse?lat={lat}&lon={lon}&format=json&zoom=18&addressdetails=1&email={contact_email}
+  rate_limits: 'Public instance: strict usage policy, identify with email/User-Agent; prefer self-hosted.'
+  cadence: On demand
+  datasets_written:
+  - geocode_osm
+- id: mapbox_geocoding
+  name: Mapbox Geocoding API
+  category: geocoding
+  enabled: false
+  base_url: https://api.mapbox.com/geocoding/v5/mapbox.places
+  docs_url: https://docs.mapbox.com/api/search/geocoding/
+  auth:
+    type: query
+    param: access_token
+    env: MAPBOX_TOKEN
+  endpoints:
+  - name: forward
+    method: GET
+    url_template: /{query}.json?proximity={lon},{lat}&limit=10&types=address,poi
+  - name: reverse
+    method: GET
+    url_template: /{lon},{lat}.json?limit=10
+  cadence: On demand
+  datasets_written:
+  - geocode_mapbox
+- id: fred
+  name: Federal Reserve Economic Data (FRED) API
+  category: macro
+  enabled: true
+  base_url: https://api.stlouisfed.org/fred
+  docs_url: https://fred.stlouisfed.org/docs/api/fred/
+  auth:
+    type: query
+    param: api_key
+    env: FRED_API_KEY
+  endpoints:
+  - name: series_observations
+    method: GET
+    url_template: /series/observations?series_id={series_id}&observation_start={start}&observation_end={end}&file_type=json
+  - name: category_series
+    method: GET
+    url_template: /category/series?category_id={category_id}&file_type=json
+  cadence: Daily
+  datasets_written:
+  - macro_rates
+  - macro_indexes
+- id: nih_reporter
+  name: NIH RePORTER Projects API
+  category: innovation
+  enabled: true
+  base_url: https://api.reporter.nih.gov/v2/projects
+  docs_url: https://api.reporter.nih.gov/
+  auth:
+    type: none
+  endpoints:
+  - name: search
+    method: POST
+    url_template: /search
+  - name: download
+    method: POST
+    url_template: /download
+  cadence: Daily
+  datasets_written:
+  - nih_awards
+- id: nsf_awards
+  name: NSF Awards API
+  category: innovation
+  enabled: true
+  base_url: https://api.nsf.gov/services/v1
+  docs_url: https://www.research.gov/common/webapi/awardapisearch-v1.htm
+  auth:
+    type: none
+  endpoints:
+  - name: awards
+    method: GET
+    url_template: /awards.json?keyword={keyword}&startDateStart={start}&startDateEnd={end}
+  cadence: Daily
+  datasets_written:
+  - nsf_awards
+- id: sbir_awards
+  name: SBIR/STTR Awards API
+  category: innovation
+  enabled: true
+  base_url: https://www.sbir.gov/api/awards.json
+  docs_url: https://www.sbir.gov/sbirsearch/award/all
+  auth:
+    type: none
+  endpoints:
+  - name: awards
+    method: GET
+    url_template: ?q={query}&start={offset}
+  cadence: Weekly
+  datasets_written:
+  - sbir_sttr_awards
+- id: patentsview
+  name: USPTO PatentsView API
+  category: innovation
+  enabled: true
+  base_url: https://api.patentsview.org
+  docs_url: https://patentsview.org/apis/api-endpoints
+  auth:
+    type: none
+  endpoints:
+  - name: patents_query
+    method: GET
+    url_template: /patents/query?q={query}&f={fields}&o={options}
+  cadence: Weekly
+  datasets_written:
+  - patents
+- id: census_cbp
+  name: Census County Business Patterns (CBP) API
+  category: labor
+  enabled: true
+  base_url: https://api.census.gov/data
+  docs_url: https://www.census.gov/data/developers/data-sets/cbp-nonemp-zbp.html
+  auth:
+    type: none
+  endpoints:
+  - name: cbp_year
+    method: GET
+    url_template: /{year}/cbp?get=EMP,ESTAB&for=county:*&in=state:{state_fips}
+  cadence: Annual
+  datasets_written:
+  - cbp_employment
+- id: fcc_bdc
+  name: FCC National Broadband Map (BDC) - public downloads & feature services
+  category: broadband
+  enabled: true
+  base_url: https://www.fcc.gov/BroadbandData/resources
+  docs_url: https://www.fcc.gov/BroadbandData/resources
+  auth:
+    type: none
+  endpoints:
+  - name: fixed_availability
+    method: GET
+    url_template: https://broadbandmap.fcc.gov/ArcGIS/rest/services/BDC/FBD_MAP/MapServer/0/query?where=1%3D1&outFields=*&f=json
+  - name: fabric_downloads
+    method: GET
+    url_template: https://www.fcc.gov/BroadbandData/resources
+  cadence: Semiannual
+  datasets_written:
+  - broadband_fixed
+- id: fcc_vizmo
+  name: FCC Mobile Speed Test Crowdsourced API (vizmo)
+  category: broadband
+  enabled: true
+  base_url: http://vizmo.fcc.gov/api
+  docs_url: https://fcc.github.io/vizmo/docs/basics.html
+  auth:
+    type: none
+  endpoints:
+  - name: tiles
+    method: GET
+    url_template: /tile?z={z}&x={x}&y={y}
+  - name: summary_by_bbox
+    method: GET
+    url_template: /summary?bbox={minx},{miny},{maxx},{maxy}
+  cadence: Weekly
+  datasets_written:
+  - broadband_mobile_speed
+- id: college_scorecard
+  name: U.S. Dept. of Education College Scorecard API
+  category: education
+  enabled: true
+  base_url: https://api.data.gov/ed/collegescorecard/v1/schools
+  docs_url: https://collegescorecard.ed.gov/data/documentation/
+  auth:
+    type: query
+    param: api_key
+    env: ED_API_KEY
+  endpoints:
+  - name: schools
+    method: GET
+    url_template: .json?fields=id,school.name,school.state,location.lat,location.lon,latest.student.size&per_page=100&page={page}
+  cadence: Annual
+  datasets_written:
+  - higher_ed_schools
+- id: fbi_cde
+  name: FBI Crime Data Explorer API (NIBRS/SRS)
+  category: risk
+  enabled: true
+  base_url: https://api.usa.gov/crime/fbi/sapi/api
+  docs_url: https://crime-data-explorer.fr.cloud.gov/api
+  auth:
+    type: query
+    param: api_key
+    env: FBI_CDE_API_KEY
+  endpoints:
+  - name: nibrs_state_counts
+    method: GET
+    url_template: /data/nibrs/{offense}/offense/count/states/{state_abbr}/offense/{offense}/year/{from_year}/{to_year}
+  cadence: Annual
+  datasets_written:
+  - crime_nibrs
+- id: usfs_wildfire_risk
+  name: USFS Wildfire Risk to Communities (ArcGIS)
+  category: risk
+  enabled: true
+  base_url: https://data-usfs.hub.arcgis.com
+  docs_url: https://wildfirerisk.org/download/
+  auth:
+    type: none
+  endpoints:
+  - name: risk_to_homes_image
+    method: GET
+    url_template: /datasets/usfs::wildfire-risk-to-communities-risk-to-potential-structures-image-service
+  - name: burn_probability
+    method: GET
+    url_template: /datasets/d93720867d1a4aa69f4a15dbf3ddeaea
+  cadence: Annual
+  datasets_written:
+  - wildfire_risk_layers
+- id: fema_nri
+  name: FEMA National Risk Index (downloads)
+  category: risk
+  enabled: true
+  base_url: https://hazards.fema.gov/nri/data-resources
+  docs_url: https://hazards.fema.gov/nri/data-resources
+  auth:
+    type: none
+  endpoints:
+  - name: tracts_csv
+    method: GET
+    url_template: /#table-format-csv
+  - name: tracts_gdb
+    method: GET
+    url_template: /#geodatabase-format
+  cadence: Annual
+  datasets_written:
+  - nri_tract
+- id: noaa_storm_events
+  name: NOAA NCEI Storm Events (bulk CSV)
+  category: risk
+  enabled: true
+  base_url: https://www.ncei.noaa.gov/stormevents
+  docs_url: https://www.ncei.noaa.gov/stormevents/
+  auth:
+    type: none
+  endpoints:
+  - name: bulk_csv
+    method: GET
+    url_template: /ftp.jsp
+  cadence: Monthly
+  datasets_written:
+  - storm_events
+- id: usgs_nwis
+  name: USGS Water Services (NWIS)
+  category: water
+  enabled: true
+  base_url: https://waterservices.usgs.gov
+  docs_url: https://waterservices.usgs.gov/
+  auth:
+    type: none
+  endpoints:
+  - name: instantaneous_values
+    method: GET
+    url_template: /nwis/iv/?sites={site_ids}&parameterCd=00060,00065&format=json
+  - name: site_info
+    method: GET
+    url_template: /nwis/site/?format=rdb&huc={huc}
+  cadence: Hourly
+  datasets_written:
+  - streamflow_iv
+  - gauge_sites
+- id: us_drought_monitor
+  name: U.S. Drought Monitor (ArcGIS)
+  category: risk
+  enabled: true
+  base_url: https://mapservice.nationaldroughtmitigationcenter.org/arcgis/rest/services/usdm_services/USDM
+  docs_url: https://droughtmonitor.unl.edu/DmData/DataServices.aspx
+  auth:
+    type: none
+  endpoints:
+  - name: mapserver_query
+    method: GET
+    url_template: /MapServer/0/query?where=ValidStart%20%3E%3D%20DATE%20%27{start}%27&outFields=*&f=json
+  cadence: Weekly
+  datasets_written:
+  - drought_monitor
+- id: ridb_recreation
+  name: Recreation.gov RIDB API
+  category: outdoors
+  enabled: true
+  base_url: https://ridb.recreation.gov/api/v1
+  docs_url: https://ridb.recreation.gov/docs
+  auth:
+    type: header
+    header: apikey
+    env: RIDB_API_KEY
+  endpoints:
+  - name: facilities
+    method: GET
+    url_template: /facilities?state={state_abbr}&limit=50&offset={offset}
+  - name: activities
+    method: GET
+    url_template: /activities
+  cadence: Weekly
+  datasets_written:
+  - rec_facilities
+- id: nps_api
+  name: National Park Service API
+  category: outdoors
+  enabled: true
+  base_url: https://developer.nps.gov/api/v1
+  docs_url: https://www.nps.gov/subjects/developer/api-documentation.htm
+  auth:
+    type: header
+    header: X-Api-Key
+    env: NPS_API_KEY
+  endpoints:
+  - name: parks
+    method: GET
+    url_template: /parks?stateCode={state_abbr}&limit=50&start={start}
+  - name: campgrounds
+    method: GET
+    url_template: /campgrounds?parkCode={park_code}
+  cadence: Weekly
+  datasets_written:
+  - parks
+  - campgrounds
+- id: usfs_trails
+  name: USFS National Forest System Trails (ArcGIS)
+  category: outdoors
+  enabled: true
+  base_url: https://data-usfs.hub.arcgis.com
+  docs_url: https://data-usfs.hub.arcgis.com/datasets/usfs::national-forest-system-trails-feature-layer/about
+  auth:
+    type: none
+  endpoints:
+  - name: trails_features
+    method: GET
+    url_template: /datasets/usfs::national-forest-system-trails-feature-layer/FeatureServer/0/query?where=1%3D1&outFields=*&f=json
+  cadence: Quarterly
+  datasets_written:
+  - trails
+- id: nrel_pvwatts
+  name: NREL PVWatts v8
+  category: energy
+  enabled: true
+  base_url: https://developer.nrel.gov/api/pvwatts/v8
+  docs_url: https://developer.nrel.gov/docs/solar/pvwatts/v8/
+  auth:
+    type: query
+    param: api_key
+    env: NREL_API_KEY
+  endpoints:
+  - name: estimate
+    method: GET
+    url_template: ?lat={lat}&lon={lon}&system_capacity={kw}&azimuth=180&tilt={tilt}&array_type=1&module_type=1&losses=14
+  cadence: On demand
+  datasets_written:
+  - pv_potential
+- id: nrel_afdc
+  name: DOE/NREL Alternative Fuel Stations API
+  category: energy
+  enabled: true
+  base_url: https://developer.nrel.gov/api/alt-fuel-stations/v1
+  docs_url: https://developer.nrel.gov/docs/transportation/alt-fuel-stations-v1/
+  auth:
+    type: query
+    param: api_key
+    env: NREL_API_KEY
+  endpoints:
+  - name: nearest
+    method: GET
+    url_template: /nearest.json?latitude={lat}&longitude={lon}&radius=50&fuel_type=ELEC
+  cadence: Daily
+  datasets_written:
+  - ev_stations
+- id: energystar_pmdx
+  name: EPA ENERGY STAR Portfolio Manager (Data Exchange)
+  category: esg
+  enabled: false
+  base_url: https://portfoliomanager.energystar.gov/wstest
+  docs_url: https://portfoliomanager.energystar.gov/webservices/home
+  auth:
+    type: basic
+    env_user: ENERGYSTAR_USER
+    env_password: ENERGYSTAR_PASSWORD
+  endpoints:
+  - name: authenticate
+    method: GET
+    url_template: /account/authenticate
+  - name: get_property
+    method: GET
+    url_template: /property/{property_id}
+  cadence: On demand
+  datasets_written:
+  - asset_energy
+- id: national_zoning_atlas
+  name: National Zoning Atlas (per-state ArcGIS feature services)
+  category: regulatory
+  enabled: false
+  base_url: https://www.zoningatlas.org
+  docs_url: https://www.zoningatlas.org/atlas
+  auth:
+    type: none
+  endpoints:
+  - name: state_layer_template
+    method: GET
+    url_template: https://services.arcgis.com/{org}/ArcGIS/rest/services/{state}_ZoningAtlas/FeatureServer/0/query?where=1%3D1&outFields=*&f=json
+  cadence: Irregular (state-by-state)
+  datasets_written:
+  - zoning_features
+- id: cdfi_ozones
+  name: CDFI Fund Qualified Opportunity Zones (QOZ)
+  category: governance
+  enabled: true
+  base_url: https://hudgis-hud.opendata.arcgis.com
+  docs_url: https://www.cdfifund.gov/opportunity-zones
+  auth:
+    type: none
+  endpoints:
+  - name: qoz_features
+    method: GET
+    url_template: /datasets/ef143299845841f8abb95969c01f88b5_13/FeatureServer/0/query?where=1%3D1&outFields=*&f=json
+  cadence: Static (designated 2018)
+  datasets_written:
+  - opportunity_zones
+- id: hud_usps_crosswalk
+  name: "HUD\u2013USPS ZIP Code Crosswalk (quarterly)"
+  category: housing
+  enabled: true
+  base_url: https://www.huduser.gov/portal/datasets/usps_crosswalk.html
+  docs_url: https://www.huduser.gov/portal/datasets/usps_crosswalk.html
+  auth:
+    type: none
+  endpoints:
+  - name: download_page
+    method: GET
+    url_template: ''
+  cadence: Quarterly
+  datasets_written:
+  - zip_crosswalk
+- id: hmda_public_api
+  name: CFPB HMDA Public API
+  category: housing
+  enabled: true
+  base_url: https://ffiec.cfpb.gov/api/public
+  docs_url: https://ffiec.cfpb.gov/documentation/public-api
+  auth:
+    type: none
+  endpoints:
+  - name: aggregations
+    method: GET
+    url_template: /hmda/aggregate?year={year}&state={state_abbr}&msamd={msa_code}
+  - name: filers
+    method: GET
+    url_template: /filers?year={year}&state={state_abbr}
+  cadence: Annual
+  datasets_written:
+  - hmda_agg
+- id: openaddresses
+  name: OpenAddresses (batch jobs & downloads)
+  category: boundaries
+  enabled: false
+  base_url: https://batch.openaddresses.io
+  docs_url: https://batch.openaddresses.io/docs/
+  auth:
+    type: none
+  endpoints:
+  - name: create_job
+    method: POST
+    url_template: /jobs
+  - name: job_status
+    method: GET
+    url_template: /jobs/{job_id}
+  cadence: Irregular
+  datasets_written:
+  - addresses
+- id: microsoft_buildings
+  name: Microsoft Global Building Footprints
+  category: geo
+  enabled: true
+  base_url: https://planetarycomputer.microsoft.com/dataset/ms-buildings
+  docs_url: https://github.com/microsoft/GlobalMLBuildingFootprints
+  auth:
+    type: none
+  endpoints:
+  - name: download_index
+    method: GET
+    url_template: https://github.com/microsoft/GlobalMLBuildingFootprints
+  cadence: Irregular
+  datasets_written:
+  - building_footprints
+- id: fra_grade_crossings_api
+  name: FRA Grade Crossings & Safety Public API
+  category: transport
+  enabled: true
+  base_url: https://safetydata.fra.dot.gov/MasterWebService/publicapi
+  docs_url: https://safetydata.fra.dot.gov/MasterWebService/publicapi/
+  auth:
+    type: none
+  endpoints:
+  - name: crossing_inventory
+    method: GET
+    url_template: /CrossingInventory?format=json&StateCode={state_abbr}
+  cadence: Monthly
+  datasets_written:
+  - rail_crossings
+- id: fra_rail_lines_ntad
+  name: NTAD North American Rail Network (lines)
+  category: transport
+  enabled: true
+  base_url: https://geodata.bts.gov
+  docs_url: https://geodata.bts.gov/datasets/usdot::north-american-rail-network-lines/about
+  auth:
+    type: none
+  endpoints:
+  - name: feature_layer
+    method: GET
+    url_template: /datasets/usdot::north-american-rail-network-lines/FeatureServer/0/query?where=1%3D1&outFields=*&f=json
+  cadence: Annual
+  datasets_written:
+  - rail_lines
+- id: phmsa_npms
+  name: PHMSA National Pipeline Mapping System (FeatureServer)
+  category: risk
+  enabled: true
+  base_url: https://services.arcgis.com/G4S1dGvn7PIgYd6Y/arcgis/rest/services
+  docs_url: https://www.phmsa.dot.gov/data-and-statistics/pipeline/data-visualization-overview
+  auth:
+    type: none
+  endpoints:
+  - name: pipelines_features
+    method: GET
+    url_template: /NPMS_Pipelines_2022/FeatureServer/0/query?where=1%3D1&outFields=*&f=json
+  cadence: Annual
+  datasets_written:
+  - pipelines
+- id: faa_nasr_csv
+  name: FAA NASR (airport facilities) CSV releases
+  category: transport
+  enabled: true
+  base_url: https://www.faa.gov/air_traffic/flight_info/aeronav/aero_data/NASR_Subscription
+  docs_url: https://www.faa.gov/air_traffic/flight_info/aeronav/aero_data/NASR_Subscription/
+  auth:
+    type: none
+  endpoints:
+  - name: latest_release_page
+    method: GET
+    url_template: ''
+  cadence: Every 28 days
+  datasets_written:
+  - airports_nasr
+- id: epa_sld
+  name: EPA Smart Location Database (SLD)
+  category: urban
+  enabled: true
+  base_url: https://gis.ers.usda.gov/arcgis/rest/services
+  docs_url: https://www.epa.gov/smartgrowth/smart-location-mapping
+  auth:
+    type: none
+  endpoints:
+  - name: feature_service
+    method: GET
+    url_template: http://gis.ers.usda.gov/arcgis/rest/services/SLD/MapServer/0/query?where=1%3D1&outFields=*&f=json
+  cadence: Irregular (v3 latest)
+  datasets_written:
+  - epa_sld_blockgroup
+- id: epa_ejscreen_bulk
+  name: EPA EJScreen (bulk CSV/Geodatabase mirror)
+  category: environment
+  enabled: true
+  base_url: https://gaftp.epa.gov/EJScreen
+  docs_url: https://www.epa.gov/system/files/documents/2024-07/ejscreen-tech-doc-version-2-3.pdf
+  auth:
+    type: none
+  endpoints:
+  - name: latest_zip
+    method: GET
+    url_template: /2024/2.30_July_useMe/EJScreen_2024_BG_StatePct_with_AS_CNMI_GU_VI.csv.zip
+  cadence: Annual
+  datasets_written:
+  - ejscreen_bg

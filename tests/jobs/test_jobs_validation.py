@@ -68,11 +68,17 @@ def test_crosswalk_cross_validation() -> None:
         }
     )
     aggregated = aggregate_migration_to_msa(migration_df, crosswalk)
-    net = migration_net_25_44(migration_df).sum()
-    msa_net = migration_net_25_44(
-        aggregated.rename(columns={"inflow": "inflow", "outflow": "outflow", "population": "population"})
-    ).sum()
-    assert math.isclose(net, msa_net)
+
+    county_total_net = (migration_df["inflow"] - migration_df["outflow"]).sum()
+    county_total_population = migration_df["population"].sum()
+    expected_per_1k = (county_total_net / county_total_population) * 1000
+
+    msa_net_series = migration_net_25_44(aggregated)
+    weighted_msa_per_1k = (
+        (msa_net_series * aggregated["population"]).sum() / aggregated["population"].sum()
+    )
+
+    assert math.isclose(weighted_msa_per_1k, expected_per_1k)
 
 
 def test_awards_trend_matches_manual() -> None:
@@ -134,4 +140,3 @@ def test_end_to_end_market_jobs_pipeline() -> None:
     assert lq["lq"].notna().all()
     assert migration_metric > 0
     assert awards_growth > -1  # sanity check
-*** End Patch

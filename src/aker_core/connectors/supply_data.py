@@ -579,13 +579,13 @@ class SupplyDataETL:
 
                 # Convert lease data to expected format
                 lease_data_formatted = {
-                    "lease_date": [l["lease_date"] for l in lease_data],
+                    "lease_date": [lease["lease_date"] for lease in lease_data],
                     "property_id": [f"PROP_{i}" for i in range(len(lease_data))],
-                    "days_on_market": [l["days_on_market"] for l in lease_data],
+                    "days_on_market": [lease["days_on_market"] for lease in lease_data],
                 }
 
                 # Calculate and persist metrics
-                result = calculate_supply_metrics(
+                calculate_supply_metrics(
                     session=session,
                     msa_id=msa_id,
                     permits_data=permits,

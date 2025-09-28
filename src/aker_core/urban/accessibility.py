@@ -9,6 +9,7 @@ import pandas as pd
 
 from aker_core.logging import get_logger
 from aker_geo.isochrones import compute_isochrones, count_amenities_in_isochrones
+from aker_geo.isochrones.amenity_analysis import AmenityAnalyzer
 
 from .models import AmenityCategory
 
@@ -19,6 +20,7 @@ class AccessibilityAnalyzer:
     def __init__(self):
         """Initialize accessibility analyzer."""
         self.logger = get_logger(__name__)
+        self._amenity_analyzer = AmenityAnalyzer()
 
         # Standard amenity categories for urban convenience
         self.amenity_categories = {
@@ -119,6 +121,51 @@ class AccessibilityAnalyzer:
         except Exception as e:
             self.logger.error(f"POI accessibility computation failed: {e}")
             raise
+
+    # ------------------------------------------------------------------
+    # Amenity analysis helpers (delegates to aker_geo analyzer)
+    # ------------------------------------------------------------------
+    def count_amenities_in_isochrones(
+        self,
+        isochrones_gdf: gpd.GeoDataFrame,
+        amenities_gdf: gpd.GeoDataFrame,
+        amenity_categories: Optional[Dict[str, List[str]]] = None,
+    ) -> gpd.GeoDataFrame:
+        """Count amenities present inside each isochrone polygon."""
+
+        from shapely.geometry import Point
+
+        working = isochrones_gdf.copy()
+        if "geometry" in working.columns:
+            working["geometry"] = working["geometry"].apply(
+                lambda geom: geom if geom is not None and not getattr(geom, "is_empty", False) else Point()
+            )
+        elif "isochrone" in working.columns:
+            working["geometry"] = working["isochrone"].apply(
+                lambda geom: geom if geom is not None and not getattr(geom, "is_empty", False) else Point()
+            )
+
+        result = self._amenity_analyzer.count_amenities_in_isochrones(
+            working, amenities_gdf, amenity_categories
+        )
+        result.index = isochrones_gdf.index
+        return result
+
+    def compute_amenity_accessibility_scores(
+        self, isochrones_gdf: gpd.GeoDataFrame, weights: Optional[Dict[str, float]] = None
+    ) -> gpd.GeoDataFrame:
+        """Compute weighted accessibility scores for a set of amenity counts."""
+
+        return self._amenity_analyzer.compute_amenity_accessibility_scores(
+            isochrones_gdf.copy(), weights
+        )
+
+    def analyze_amenity_coverage(
+        self, isochrones_gdf: gpd.GeoDataFrame, population_gdf: Optional[gpd.GeoDataFrame] = None
+    ) -> Dict[str, float]:
+        """Summarise amenity coverage statistics for the supplied isochrones."""
+
+        return self._amenity_analyzer.analyze_amenity_coverage(isochrones_gdf, population_gdf)
 
     def rent_trend(
         self, rent_data: pd.DataFrame, periods: int = 4, aggregation_level: str = "msa"

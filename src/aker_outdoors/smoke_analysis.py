@@ -2,18 +2,15 @@
 
 from __future__ import annotations
 
-import logging
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from typing import Dict, List, Optional, Tuple
 
 import geopandas as gpd
 import pandas as pd
 from shapely.geometry import Point, Polygon
 
+from aker_core.connectors.base import DataConnector
 from aker_core.logging import get_logger
-
-from ..connectors.base import DataConnector
-from .models import SmokeDensity
 
 
 class NOAAHMSConnector(DataConnector):
@@ -65,7 +62,7 @@ class NOAAHMSConnector(DataConnector):
                 density = self._get_random_choice(["Light", "Moderate", "Heavy"])
 
                 mock_data.append({
-                    "smoke_id": f"HMS_{current_date.strftime('%Y%m%d')}_{i"03d"}",
+                    "smoke_id": f"HMS_{current_date.strftime('%Y%m%d')}_{i:03d}",
                     "date": current_date,
                     "density": density,
                     "latitude": lat,

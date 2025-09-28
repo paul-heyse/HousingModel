@@ -1,0 +1,24 @@
+Boise
+2024-10-01
+Run run-123 · Git abc1234
+Executive Summary
+Market composite score: 4.2 Risk multiplier: 0.95
+Market Scorecard
+Supply Pillar
+| Permit Velocity | 120 bps | 82 |
+Asset Fit
+Overall fit score: 87
+| medium | AMENITY | Amenity deficit | Pool offline | Pool refreshed |
+Deal Archetypes & ROI Ladder
+Risk & Insurance
+| wildfire | 1.1 | 15 | 0.05 |
+Operations & Reputation
+Reputation index: 72
+| 2024-Q2 | 35 |
+- Tenant email [REDACTED EMAIL] left number [REDACTED PHONE]
+State Policy Changes
+| Water Rights | 120 gpd → 140 gpd |
+Appendix A – Data sources
+- BLS: 2024-09
+- HUD: 2024-08
+Created <CREATED_AT> · Run run-123

@@ -1,6 +1,6 @@
 """Market analysis utilities for the Aker Property Model."""
 
-from .regulatory import encode_rules, RegulatoryEncoder
+from .regulatory import RegulatoryEncoder, encode_rules
 
 __all__ = [
     "encode_rules",

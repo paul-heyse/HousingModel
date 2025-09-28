@@ -59,8 +59,7 @@ class PermitCollectionFlow(ETLFlow):
         # Use Great Expectations for comprehensive validation
         validation_result = validate_data_quality(
             df=df,
-            suite_name="permits_validation",
-            data_asset_name="collected_permits",
+            dataset_type="permits",
             fail_on_error=True,
         )
 

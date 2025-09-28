@@ -18,6 +18,4 @@ __all__ = [
     "rolling_smoke_days",
     "OutdoorMetrics",
     "EnvironmentalDataSource",
-    "compute_outdoor_environmental_metrics",
-    "analyze_environmental_risks",
 ]

@@ -1,0 +1,21 @@
+date,source,rating,text,response_time_days,is_move_in
+2024-01-15,Google,4.5,"Great location and amenities, management is responsive",2,true
+2024-01-20,Yelp,4.2,"Clean and well-maintained property with good parking",1,false
+2024-02-01,Apartments.com,4.8,"Love the community events and modern appliances",0,true
+2024-02-10,Google,3.9,"Maintenance could be faster, but overall good value",3,false
+2024-02-15,Yelp,4.1,"Nice pool area and fitness center",1,false
+2024-03-05,Apartments.com,4.6,"Excellent customer service and quick lease process",0,true
+2024-03-12,Google,4.3,"Good location but parking can be challenging",2,false
+2024-03-20,Yelp,4.0,"Average experience, nothing special",4,false
+2024-04-01,Apartments.com,4.7,"Beautiful grounds and friendly neighbors",1,true
+2024-04-08,Google,4.4,"Responsive management and clean facilities",1,false
+2024-04-15,Yelp,4.2,"Decent place to live, convenient location",2,false
+2024-05-01,Apartments.com,4.9,"Outstanding community and excellent value",0,true
+2024-05-10,Google,4.1,"Some noise issues but overall satisfied",3,false
+2024-05-18,Yelp,4.5,"Great amenities and pet-friendly policies",1,false
+2024-06-01,Apartments.com,4.3,"Good maintenance response times",2,true
+2024-06-08,Google,4.6,"Love the updated units and modern features",1,false
+2024-06-15,Yelp,4.0,"Average experience, could use more parking",4,false
+2024-07-01,Apartments.com,4.8,"Excellent customer service and quick responses",0,true
+2024-07-10,Google,4.2,"Clean property but rent increases are steep",3,false
+2024-07-18,Yelp,4.4,"Nice community events and social activities",1,false

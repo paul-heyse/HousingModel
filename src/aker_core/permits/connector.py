@@ -4,13 +4,16 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from datetime import date, datetime, timedelta
-from typing import List, Optional, Union
+from typing import TYPE_CHECKING, List, Optional, Union
 
 from aker_core.cache import RateLimiter
 from aker_core.logging import get_logger
 from aker_core.run import RunContext
 
 from .models import PermitCollectionResult, PermitRecord
+
+if TYPE_CHECKING:
+    from .models import Address
 
 
 class PermitsConnector(ABC):
@@ -150,7 +153,7 @@ class PermitsConnector(ABC):
 
         raise NotImplementedError("Connector must implement _convert_to_permit_record")
 
-    def _create_address(self, address_data: dict) -> "Address":
+    def _create_address(self, address_data: dict) -> Address:
         """Create Address object from raw address data."""
         from .models import Address
 

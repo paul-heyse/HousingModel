@@ -17,8 +17,19 @@ def test_crud_extras_sqlite(tmp_path: Path) -> None:
     with Session(engine) as session:
         af = AssetFit(asset_id=1, product_type="garden", fit_score=72.5)
         da = DealArchetype(name="light value-add", cost=8000.0, payback_mo=36)
-        ap = AmenityProgram(asset_id=1, amenity="dog wash", capex=2500.0)
-        rp = RiskProfile(peril="hail", multiplier=1.05)
+        ap = AmenityProgram(
+            asset_id=1,
+            amenity_code="DOG_WASH",
+            amenity_name="dog wash",
+            capex=2500.0,
+        )
+        rp = RiskProfile(
+            subject_type="asset",
+            subject_id="ASSET-1",
+            peril="hail",
+            severity_idx=0.5,
+            multiplier=1.05,
+        )
         om = OpsModel(asset_id=1, nps=45)
         session.add_all([af, da, ap, rp, om])
         session.commit()
@@ -28,8 +39,8 @@ def test_crud_extras_sqlite(tmp_path: Path) -> None:
         assert af_loaded is not None and af_loaded.fit_score == 72.5
         da_loaded = session.query(DealArchetype).first()
         assert da_loaded is not None and da_loaded.name.startswith("light")
-        ap_loaded = session.get(AmenityProgram, 1)
-        assert ap_loaded is not None and ap_loaded.amenity == "dog wash"
+        ap_loaded = session.query(AmenityProgram).filter_by(asset_id=1).first()
+        assert ap_loaded is not None and ap_loaded.amenity_name == "dog wash"
         rp_loaded = session.query(RiskProfile).first()
         assert rp_loaded is not None and rp_loaded.peril == "hail"
         om_loaded = session.get(OpsModel, 1)

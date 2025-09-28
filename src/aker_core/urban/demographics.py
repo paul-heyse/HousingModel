@@ -137,16 +137,23 @@ class DemographicsAnalyzer:
                 origin_data[flow_column].sum() if flow_column in origin_data.columns else 0
             )
 
-            net_flow = total_inflow - total_outflow
+            inflow_mean = (
+                destination_data[flow_column].mean()
+                if flow_column in destination_data.columns and len(destination_data) > 0
+                else 0
+            )
+            outflow_mean = (
+                origin_data[flow_column].mean()
+                if flow_column in origin_data.columns and len(origin_data) > 0
+                else 0
+            )
 
             return {
                 "total_inflow": total_inflow,
                 "total_outflow": total_outflow,
-                "net_flow": net_flow,
-                "inflow_rate": (
-                    total_inflow / len(destination_data) if len(destination_data) > 0 else 0
-                ),
-                "outflow_rate": total_outflow / len(origin_data) if len(origin_data) > 0 else 0,
+                "net_flow": inflow_mean - outflow_mean,
+                "inflow_rate": inflow_mean,
+                "outflow_rate": outflow_mean,
             }
 
         except Exception as e:

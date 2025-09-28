@@ -87,17 +87,15 @@ class MarketDataRefreshFlow(ETLFlow):
 
     @etl_task("validate_data_quality", "Validate data quality and completeness")
     def validate_data_quality(self, df: pd.DataFrame) -> bool:
-        """Validate data quality using Great Expectations."""
-        # Use Great Expectations for comprehensive validation
+        """Validate data quality using the unified schema stack."""
         validation_result = validate_data_quality(
             df=df,
-            suite_name="acs_income_validation",
-            data_asset_name="census_income_data",
+            dataset_type="acs",
             fail_on_error=True,
         )
 
         self.logger.info(
-            f"Great Expectations validation passed: {validation_result['successful_expectations']}/{validation_result['total_expectations']} expectations"
+            f"Data validation passed: {validation_result['successful_expectations']}/{validation_result['total_expectations']} checks"
         )
         return True
 

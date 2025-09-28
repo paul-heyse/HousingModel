@@ -74,8 +74,9 @@ def leaseup_tom(
     if not pd.api.types.is_datetime64_any_dtype(lease_df["lease_date"]):
         lease_df["lease_date"] = pd.to_datetime(lease_df["lease_date"])
 
-    # Filter to recent time window
-    cutoff_date = lease_df["lease_date"].max() - pd.Timedelta(days=time_window_days)
+    # Filter to recent time window (inclusive of the end date)
+    latest_date = lease_df["lease_date"].max()
+    cutoff_date = latest_date - pd.Timedelta(days=time_window_days)
     recent_leases = lease_df[lease_df["lease_date"] >= cutoff_date]
 
     if len(recent_leases) < 2:
@@ -94,12 +95,8 @@ def leaseup_tom(
     if len(valid_days) == 0:
         raise ValueError("No valid days on market data available")
 
-    # Calculate median days on market (more robust than mean for lease-up times)
-    try:
-        median = np.quantile(valid_days, 0.5, method="lower")
-    except TypeError:  # pragma: no cover - NumPy < 1.22
-        median = np.quantile(valid_days, 0.5, interpolation="lower")
-    median_tom = float(median)
+    # Calculate median days on market (robust to outliers) and harmonise rounding
+    median_tom = float(np.median(valid_days))
 
     return median_tom
 

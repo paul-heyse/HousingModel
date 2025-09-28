@@ -45,6 +45,8 @@ class PillarScoreService:
                 row[0] for row in self.session.execute(select(Markets.msa_id)).all() if row[0]
             ]
 
+        metrics_by_msa = self._load_pillar_source_metrics(msa_ids)
+
         results: list[MarketPillarScores] = []
         for msa_id in msa_ids:
             result = self.refresh_one(
@@ -52,6 +54,7 @@ class PillarScoreService:
                 as_of=as_of,
                 run_id=run_id,
                 weights=weights,
+                preloaded_metrics=metrics_by_msa.get(msa_id),
             )
             if result is not None:
                 results.append(result)
@@ -64,15 +67,18 @@ class PillarScoreService:
         as_of: date | datetime | str | None = None,
         run_id: Optional[int] = None,
         weights: Optional[dict[str, float]] = None,
+        preloaded_metrics: Optional[dict[str, object]] = None,
     ) -> Optional[MarketPillarScores]:
         """Refresh pillar scores for a single MSA and trigger composition if complete."""
 
         record = self._get_or_create(msa_id)
 
-        supply = self._compute_supply_score(msa_id)
-        jobs = self._compute_jobs_score(msa_id)
-        urban = self._compute_urban_score(msa_id)
-        outdoor = self._compute_outdoor_score(msa_id)
+        metrics = preloaded_metrics or self._load_single_msa_metrics(msa_id)
+
+        supply = self._compute_supply_score(metrics.get("supply"))
+        jobs = self._compute_jobs_score(metrics.get("jobs"))
+        urban = self._compute_urban_score(metrics.get("urban"))
+        outdoor = self._compute_outdoor_score(metrics.get("outdoor"))
 
         updated = False
         if supply is not None:
@@ -120,6 +126,43 @@ class PillarScoreService:
             self.session.flush()
         return record
 
+    def _load_single_msa_metrics(self, msa_id: str) -> dict[str, object]:
+        metrics = self._load_pillar_source_metrics([msa_id])
+        return metrics.get(msa_id, {})
+
+    def _load_pillar_source_metrics(self, msa_ids: Sequence[str]) -> dict[str, dict[str, object]]:
+        unique_ids = list(dict.fromkeys(msa_ids))
+        if not unique_ids:
+            return {}
+
+        metrics: dict[str, dict[str, object]] = {msa: {} for msa in unique_ids}
+
+        supply_rows = self.session.execute(
+            select(MarketSupply).where(MarketSupply.msa_id.in_(unique_ids))
+        ).scalars()
+        for row in supply_rows:
+            metrics.setdefault(row.msa_id, {})["supply"] = row
+
+        job_rows = self.session.execute(
+            select(MarketJobs).where(MarketJobs.msa_id.in_(unique_ids))
+        ).scalars()
+        for row in job_rows:
+            metrics.setdefault(row.msa_id, {})["jobs"] = row
+
+        urban_rows = self.session.execute(
+            select(MarketUrban).where(MarketUrban.msa_id.in_(unique_ids))
+        ).scalars()
+        for row in urban_rows:
+            metrics.setdefault(row.msa_id, {})["urban"] = row
+
+        outdoor_rows = self.session.execute(
+            select(MarketOutdoors).where(MarketOutdoors.msa_id.in_(unique_ids))
+        ).scalars()
+        for row in outdoor_rows:
+            metrics.setdefault(row.msa_id, {})["outdoor"] = row
+
+        return metrics
+
     @staticmethod
     def _coerce_date(value: date | datetime | str) -> date:
         if isinstance(value, date) and not isinstance(value, datetime):
@@ -133,15 +176,10 @@ class PillarScoreService:
                 return datetime.strptime(value, "%Y-%m").date().replace(day=1)
         raise TypeError("Unsupported date value for score_as_of")
 
-    def _first(self, model, msa_id: str):
-        return (
-            self.session.execute(select(model).where(model.msa_id == msa_id).limit(1))
-            .scalars()
-            .first()
-        )
-
     @staticmethod
     def _favor_higher(value: Optional[float], baseline: float, ceiling: float) -> Optional[float]:
+        """Normalise a metric where higher is better using spec-defined anchors."""
+
         if value is None:
             return None
         if value <= baseline:
@@ -152,12 +190,17 @@ class PillarScoreService:
 
     @staticmethod
     def _favor_lower(value: Optional[float], best: float, worst: float) -> Optional[float]:
+        """Normalise a metric where lower is better, keeping guardrails explicit."""
+
         if value is None:
             return None
         if value <= best:
             return 1.0
         if value >= worst:
             return 0.0
+        # The linear falloff matches the governance-approved heuristics documented
+        # in the market scoring knowledge base; reviewers rely on these anchors
+        # when auditing pillar scores for reasonableness.
         return float(1.0 - ((value - best) / (worst - best)))
 
     @staticmethod
@@ -180,8 +223,7 @@ class PillarScoreService:
             for field in ("supply_0_5", "jobs_0_5", "urban_0_5", "outdoor_0_5")
         )
 
-    def _compute_supply_score(self, msa_id: str) -> Optional[float]:
-        record = self._first(MarketSupply, msa_id)
+    def _compute_supply_score(self, record: Optional[MarketSupply]) -> Optional[float]:
         if record is None:
             return None
 
@@ -197,8 +239,7 @@ class PillarScoreService:
 
         return self._to_0_5(self._mean(scores))
 
-    def _compute_jobs_score(self, msa_id: str) -> Optional[float]:
-        record = self._first(MarketJobs, msa_id)
+    def _compute_jobs_score(self, record: Optional[MarketJobs]) -> Optional[float]:
         if record is None:
             return None
 
@@ -226,8 +267,7 @@ class PillarScoreService:
 
         return self._to_0_5(self._mean(scores))
 
-    def _compute_urban_score(self, msa_id: str) -> Optional[float]:
-        record = self._first(MarketUrban, msa_id)
+    def _compute_urban_score(self, record: Optional[MarketUrban]) -> Optional[float]:
         if record is None:
             return None
 
@@ -247,8 +287,7 @@ class PillarScoreService:
 
         return self._to_0_5(self._mean(scores))
 
-    def _compute_outdoor_score(self, msa_id: str) -> Optional[float]:
-        record = self._first(MarketOutdoors, msa_id)
+    def _compute_outdoor_score(self, record: Optional[MarketOutdoors]) -> Optional[float]:
         if record is None:
             return None
 

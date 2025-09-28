@@ -1,0 +1,13 @@
+## 1. Implementation
+- [x] 1.1 Create `state_packs` module with rule application engine
+- [x] 1.2 Implement `apply(state_code, context)` function with CO/UT/ID specific logic
+- [x] 1.3 Define YAML schema for state rule configurations
+- [x] 1.4 Create `state_rules` database table with snapshot functionality
+- [x] 1.5 Implement CO-specific rule pack (aerospace/tech/health anchors, hail/wildfire patterns)
+- [x] 1.6 Implement UT-specific rule pack (topography friction, water rights, winter timing)
+- [x] 1.7 Implement ID-specific rule pack (migration patterns, walkable districts, forest wildfire)
+- [x] 1.8 Create state selector UI component with guardrail pre-filling
+- [x] 1.9 Write validation tests for state rule application and guardrail mutation
+- [x] 1.10 Create integration tests with CO/UT/ID specific scenarios
+- [x] 1.11 Document API surface and YAML configuration format
+- [x] 1.12 Add performance benchmarks for rule application

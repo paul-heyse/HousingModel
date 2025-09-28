@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_core/risk/engine.py
+# hypothesis_version: 6.140.2
+
+[1.0, 50.0, '%Y-%m', 'RiskEngine', 'asset', 'asset_id', 'compute', 'contingency_pct', 'data_vintage', 'deductible', 'exit_cap_rate', 'market', 'msa_id', 'multiplier', 'note', 'peril', 'risk_adjustments', 'risk_multiplier', 'severity_idx', 'source', 'subject_id', 'subject_type', 'unknown']

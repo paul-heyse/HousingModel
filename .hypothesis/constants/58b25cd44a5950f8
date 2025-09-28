@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_core/permits/connector.py
+# hypothesis_version: 6.140.2
+
+[365, '%Y-%m-%d', '%Y/%m/%d', '%d/%m/%Y', '%m/%d/%Y', '+00:00', 'Address', 'Z', 'city', 'collection_result', 'county', 'end_date', 'error', 'id', 'latitude', 'longitude', 'start_date', 'state', 'street', 'unknown', 'zip_code']

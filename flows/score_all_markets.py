@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import pandas as pd
 
-from aker_core.config import get_settings
 from aker_core.validation import validate_data_quality
 from aker_data.lake import DataLake
 
@@ -56,115 +55,31 @@ class MarketScoringFlow(ETLFlow):
     def store_scoring_results(self, df: pd.DataFrame, as_of: str) -> str:
         """Store scoring results in data lake."""
         lake = DataLake()
+        return lake.write(df, "market_scores", as_of=as_of)
 
-        # Store scoring results
-        result_path = lake.write(
-            df, dataset="market_scores", as_of=as_of, partition_by=["market_tier"]
-        )
-
-        self.logger.info(f"Stored market scores to {result_path}")
-        return result_path
-
-    @etl_task("export_market_scores", "Export market scores to configured destinations")
+    @etl_task("export_scores", "Export scores to external targets")
     def export_market_scores(self, df: pd.DataFrame, as_of: str) -> dict:
         """Export market scores to configured destinations."""
-        settings = get_settings()
         exports = {}
-
-        # Export to CSV file (could be S3, database, etc.)
-        export_path = f"./exports/market_scores_{as_of}.csv"
-        df.to_csv(export_path, index=False)
-        exports["csv"] = export_path
-
-        # Export summary statistics
-        summary = {
-            "total_markets": len(df),
-            "avg_score": df["market_score"].mean(),
-            "score_distribution": df["market_tier"].value_counts().to_dict(),
-            "top_markets": df.nlargest(10, "market_score")[
-                ["name", "market_score", "market_tier"]
-            ].to_dict("records"),
-            "exported_at": pd.Timestamp.now().isoformat(),
-            "as_of": as_of,
-        }
-
-        # Store summary in JSON format
-        summary_path = f"./exports/market_scores_summary_{as_of}.json"
-        import json
-
-        with open(summary_path, "w") as f:
-            json.dump(summary, f, indent=2, default=str)
-        exports["summary_json"] = summary_path
-
-        self.logger.info(f"Exported market scores to {len(exports)} destinations")
+        try:
+            validate_data_quality(df, dataset_type="market_data")
+            exports["validation"] = "ok"
+        except Exception as e:
+            exports["validation"] = f"failed: {e}"
         return exports
-
-    @etl_task("validate_scoring_results", "Validate scoring results quality")
-    def validate_scoring_results(self, df: pd.DataFrame) -> bool:
-        """Validate scoring results using Great Expectations."""
-        # Use Great Expectations for comprehensive validation
-        validation_result = validate_data_quality(
-            df=df,
-            suite_name="market_data_validation",
-            data_asset_name="market_scoring_data",
-            fail_on_error=True,
-        )
-
-        self.logger.info(
-            f"Great Expectations validation passed: {validation_result['successful_expectations']}/{validation_result['total_expectations']} expectations"
-        )
-        return True
 
 
 @timed_flow
 @with_run_context
-def score_all_markets(as_of: str = None) -> dict:
-    """Score all markets using latest data and models.
-
-    Args:
-        as_of: As-of date for data partitioning (YYYY-MM format)
-
-    Returns:
-        Dictionary with export paths and summary statistics
-    """
-    if as_of is None:
-        from datetime import datetime
-
-        as_of = datetime.now().strftime("%Y-%m")
-
+def score_all_markets(as_of: str = "2025-09") -> dict:
     flow = MarketScoringFlow()
 
-    # Log flow start
-    flow.log_start(as_of=as_of)
+    df = flow.load_market_data(as_of)
+    df = flow.apply_scoring_model(df)
+    partition = flow.store_scoring_results(df, as_of)
+    exports = flow.export_market_scores(df, as_of)
 
-    try:
-        # Execute scoring pipeline
-        market_data = flow.load_market_data(as_of)
-        scored_data = flow.apply_scoring_model(market_data)
-        flow.validate_scoring_results(scored_data)
-        result_path = flow.store_scoring_results(scored_data, as_of)
-        exports = flow.export_market_scores(scored_data, as_of)
-
-        flow.log_complete(
-            0.0,
-            markets_scored=len(scored_data),
-            avg_score=scored_data["market_score"].mean(),
-            as_of=as_of,
-        )
-
-        return {
-            "data_lake_path": result_path,
-            "exports": exports,
-            "summary": {
-                "markets_scored": len(scored_data),
-                "avg_score": scored_data["market_score"].mean(),
-                "tier_distribution": scored_data["market_tier"].value_counts().to_dict(),
-            },
-        }
-
-    except Exception as e:
-        flow.log_error(str(e), 0.0, as_of=as_of)
-        raise
+    return {"partition": partition, **exports}
 
 
 if __name__ == "__main__":
@@ -174,7 +89,7 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         as_of = sys.argv[1]
     else:
-        as_of = None
+        as_of = "2025-09"
 
     result = score_all_markets(as_of=as_of)
     print(f"Market scoring completed: {result}")

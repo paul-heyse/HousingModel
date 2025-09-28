@@ -93,18 +93,18 @@ def run_database_migration():
 
 
 def run_validation_suite():
-    """Run the Great Expectations validation suite."""
+    """Run the schema validation suite placeholder."""
     print("\nRunning validation suite...")
 
     try:
-        # This would run the validation suite
-        # For now, just indicate it's ready
-        print("✅ Validation suite ready (would run Great Expectations)")
-        print("   To run validation: python -m great_expectations checkpoint run supply_metrics")
+        # The full validation requires a database session; here we ensure the suite loads.
+        SupplyValidationSuite()
+        print("✅ Validation stack ready (Pandera schemas registered)")
+        print("   Execute runtime validation within the pipeline environment")
         return True
 
     except Exception as e:
-        print(f"❌ Validation suite failed: {e}")
+        print(f"❌ Validation suite initialisation failed: {e}")
         return False
 
 
@@ -203,9 +203,9 @@ def create_deployment_config():
             "indexes": ["ix_market_supply_msa_vintage", "ix_market_supply_elasticity"],
         },
         "validation": {
-            "great_expectations": {
-                "suite_name": "supply_metrics",
-                "validation_frequency": "post_processing",
+            "schemas": {
+                "supply_summary": "pandera",
+                "frequency": "post_processing",
             }
         },
     }

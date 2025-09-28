@@ -7,7 +7,12 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from aker_core.scoring import RobustNormalizationError, robust_minmax
+from aker_core.scoring import (
+    RobustNormalizationError,
+    apply_winsor_bounds,
+    compute_winsor_bounds,
+    robust_minmax,
+)
 
 
 class TestRobustMinMax:
@@ -77,6 +82,12 @@ class TestRobustMinMax:
     def test_integration_with_array_like(self) -> None:
         result = robust_minmax((1, 2, 3, 4))
         assert np.all(np.diff(result) >= 0)
+
+    def test_bounds_reuse(self) -> None:
+        data = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
+        lower, upper = compute_winsor_bounds(data)
+        reused = apply_winsor_bounds(data, lower=lower, upper=upper)
+        np.testing.assert_allclose(reused, robust_minmax(data))
 
 
 class TestGoldenMaster:

@@ -14,7 +14,11 @@ import numpy as np
 import pandas as pd
 
 from ..database.supply import SupplyRepository
-from ..supply import calculate_supply_metrics, get_supply_scores_for_scoring
+from ..supply import (
+    calculate_supply_metrics,
+    get_supply_scores_for_scoring,
+    validate_supply_data_quality,
+)
 from ..validation.supply_validation import run_supply_validation_cli
 
 logger = logging.getLogger(__name__)
@@ -334,7 +338,7 @@ def create_supply_data_pipeline_config() -> Dict[str, Any]:
             "retry_attempts": 3,
         },
         "validation": {
-            "enable_great_expectations": True,
+            "enable_schema_validation": True,
             "validation_frequency": "post_processing",
             "quality_thresholds": {"min_data_completeness": 0.8, "max_outlier_percentage": 0.1},
         },

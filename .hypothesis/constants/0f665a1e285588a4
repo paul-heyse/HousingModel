@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_core/amenities/benchmarks.py
+# hypothesis_version: 6.140.2
+
+[0.0, 0.55, 0.6, 0.72, 0.9, 25.0, 35.0, 55.0, 85.0, 90.0, 120.0, 140.0, 150.0, 180.0, 280.0, 350.0, 450.0, 600.0, 650.0, 1200.0, 1900.0, 1950.0, 2050.0, 2100.0, 60000.0, 95000.0, 175000.0, 250000.0, '2025-06', '2025-07', '2025-08', '2025-09', 'AmenityCalibration', 'Cowork Lounge', 'Pet Spa & Wash', 'cowork_lounge', 'default_capex', 'fitness_center', 'pet_spa', 'smart_access']

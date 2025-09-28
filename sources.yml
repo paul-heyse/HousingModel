@@ -1,0 +1,769 @@
+version: 1
+updated: "2025-09-27"
+defaults:
+  http:
+    timeout_s: 60
+    retries: 3
+    backoff: jitter
+  cache_ttl: "30d"   # CORE-005 offline cache default
+
+sources:
+
+  # -----------------------------
+  # DEMOGRAPHICS / LABOR / MACRO
+  # -----------------------------
+
+  - id: census_acs
+    name: "U.S. Census — American Community Survey (ACS 5-year)"
+    category: demographics
+    enabled: true
+    base_url: 'https://api.census.gov/data/{year}/acs/acs5'
+    docs_url: 'https://api.census.gov/data/{year}/acs/acs5.html'
+    auth:
+      type: api_key_optional
+      in: query
+      param: key
+      env: CENSUS_API_KEY
+    endpoints:
+      - name: table_query
+        method: GET
+        url_template: '?get={vars}&for={geo}:{geo_id}'
+        example: 'https://api.census.gov/data/2023/acs/acs5?get=NAME,B01001_001E&for=metropolitan%20statistical%20area/micropolitan%20statistical%20area:*'
+    rate_limits: "Soft throttle; add key for higher quotas."
+    cadence: "Annual; new vintages each fall."
+    datasets_written: [acs_income, acs_education, acs_commute, acs_households]
+
+  - id: bls_timeseries
+    name: "BLS Public Data API v2 (CES/LAUS etc.)"
+    category: labor
+    enabled: true
+    base_url: 'https://api.bls.gov/publicAPI/v2/timeseries/data'
+    docs_url: 'https://www.bls.gov/developers/home.htm'
+    auth:
+      type: none
+    endpoints:
+      - name: series_post
+        method: POST
+        url_template: ''
+        example: 'POST https://api.bls.gov/publicAPI/v2/timeseries/data/  body: {"seriesid":["LAUCN040010000000005"],"startyear":"2022","endyear":"2025"}'
+    rate_limits: "No key required; keep payloads small."
+    cadence: "Monthly"
+    datasets_written: [laus_unemp, ces_jobs]
+
+  - id: bls_qcew
+    name: "BLS QCEW Open Data (CSV API)"
+    category: labor
+    enabled: true
+    base_url: 'https://data.bls.gov/cew/data/api'
+    docs_url: 'https://www.bls.gov/cew/additional-resources/open-data/'
+    auth: { type: none }
+    endpoints:
+      - name: area_slice
+        method: GET
+        url_template: '/{year}/{quarter}/area/{area_code}.csv'
+        example: 'https://data.bls.gov/cew/data/api/2024/1/area/08001.csv'
+    rate_limits: "Static CDN; chunk pulls."
+    cadence: "Quarterly"
+    datasets_written: [qcew_naics, qcew_wages]
+
+  - id: bea_regional
+    name: "BEA API — Regional (GDP/PI)"
+    category: macro
+    enabled: true
+    base_url: 'https://apps.bea.gov/api/data'
+    docs_url: 'https://apps.bea.gov/api/signup/'
+    auth:
+      type: api_key
+      in: query
+      param: UserID
+      env: BEA_API_KEY
+    endpoints:
+      - name: personal_income_msa
+        method: GET
+        url_template: '?UserID={key}&method=GetData&DataSetName=Regional&TableName=CAINC1&GeoFIPS=MSA&Year=ALL'
+        example: 'https://apps.bea.gov/api/data?UserID={KEY}&method=GetData&DataSetName=Regional&TableName=CAINC1&GeoFIPS=MSA&Year=ALL'
+    cadence: "Quarterly/Annual"
+    datasets_written: [bea_income, bea_gdp]
+
+  - id: census_bfs
+    name: "Census Business Formation Statistics (EITS/BFS)"
+    category: business_dynamism
+    enabled: true
+    base_url: 'https://api.census.gov/data/timeseries/eits/bfs'
+    docs_url: 'https://api.census.gov/data/timeseries/eits/bfs.html'
+    auth: { type: api_key_optional, in: query, param: key, env: CENSUS_API_KEY }
+    endpoints:
+      - name: national_series
+        method: GET
+        url_template: '?get=cell_value,data_type_code,time&time={time_expr}&seasonally_adj={U_or_S}'
+        example: 'https://api.census.gov/data/timeseries/eits/bfs?get=cell_value,data_type_code,time&time=from%202022-01%20to%202025-08&seasonally_adj=U'
+    cadence: "Monthly"
+    datasets_written: [bfs_apps]
+
+  - id: census_bps
+    name: "Census Building Permits Survey (BPS) — timeseries"
+    category: housing_supply
+    enabled: true
+    base_url: 'https://api.census.gov/data/timeseries/bps'
+    docs_url: 'https://www.census.gov/permits'
+    auth: { type: api_key_optional, in: query, param: key, env: CENSUS_API_KEY }
+    endpoints:
+      - name: cbsa_permits
+        method: GET
+        url_template: '?get=month,year,permits,geo&time={time_expr}&geo={cbsa_code}'
+        example: 'https://api.census.gov/data/timeseries/bps?get=month,year,permits&time=from%202023-01%20to%202025-08'
+    cadence: "Monthly"
+    datasets_written: [bps_permits]
+
+  - id: lehd_lodes
+    name: "LEHD LODES v8 (HTTP directory)"
+    category: labor
+    enabled: true
+    base_url: 'https://lehd.ces.census.gov/data/lodes/LODES8'
+    docs_url: 'https://lehd.ces.census.gov/doc/help/onthemap/LODESTechDoc.pdf'
+    auth: { type: none }
+    endpoints:
+      - name: wac_state
+        method: GET
+        url_template: '/{state}/{state}_wac_S000_JT00_{year}.csv.gz'
+        example: 'https://lehd.ces.census.gov/data/lodes/LODES8/co/co_wac_S000_JT00_2021.csv.gz'
+    cadence: "Irregular by state; treat as static per release"
+    datasets_written: [lodes_wac, lodes_rac, lodes_od]
+
+  # -----------------------------
+  # URBAN CONVENIENCE / TRANSIT
+  # -----------------------------
+
+  - id: osm_overpass
+    name: "OpenStreetMap — Overpass API"
+    category: poi_network
+    enabled: true
+    base_url: 'https://overpass-api.de/api/interpreter'
+    docs_url: 'https://wiki.openstreetmap.org/wiki/Overpass_API'
+    auth: { type: none }
+    endpoints:
+      - name: ql_post
+        method: POST
+        url_template: ''
+        example: |
+          POST https://overpass-api.de/api/interpreter
+          body: [out:json][timeout:180];node["amenity"="supermarket"](bbox);out center;
+    rate_limits: "Community resource; keep <10k queries/day and <1GB/day."
+    datasets_written: [osm_pois, osm_bikeways]
+
+  - id: transitland_v2
+    name: "Transitland v2 (REST)"
+    category: transit
+    enabled: false      # enable if you have key
+    base_url: 'https://transit.land/api/v2/rest'
+    docs_url: 'https://www.transit.land/documentation/rest-api/'
+    auth: { type: api_key, in: header_or_query, header: apikey, param: apikey, env: TRANSITLAND_API_KEY }
+    endpoints:
+      - name: feeds_search
+        method: GET
+        url_template: '/feeds?bbox={minx},{miny},{maxx},{maxy}'
+        example: 'https://transit.land/api/v2/rest/feeds?bbox=-112.5,39.0,-111.5,40.0'
+    cadence: "When GTFS updates"
+    datasets_written: [gtfs_feeds, gtfs_stops, gtfs_routes]
+
+  - id: gbfs_generic
+    name: "GBFS micromobility (system-specific root)"
+    category: mobility
+    enabled: false
+    base_url: 'https://{provider_host}/gbfs.json'
+    docs_url: 'https://gbfs.org/documentation/reference/'
+    auth: { type: none }
+    endpoints:
+      - name: discovery
+        method: GET
+        url_template: ''
+        example: 'https://gbfs.bcycle.com/bcycle_gbfs/gbfs.json'
+    cadence: "Realtime (minutes)"
+    datasets_written: [gbfs_systems]
+
+  # -----------------------------
+  # ROUTING / ISOCHRONES
+  # -----------------------------
+
+  - id: osrm
+    name: "OSRM HTTP API (self/hosted)"
+    category: routing
+    enabled: true
+    base_url: 'https://{your_osrm_host}'
+    docs_url: 'https://project-osrm.org/docs/v5.24.0/api/'
+    auth: { type: none }
+    endpoints:
+      - name: route
+        method: GET
+        url_template: '/route/v1/{profile}/{lon1},{lat1};{lon2},{lat2}?overview=full&annotations=duration,distance'
+        example: 'http://localhost:5000/route/v1/driving/-116.214,43.618;-116.203,43.602?overview=false'
+      - name: table
+        method: GET
+        url_template: '/table/v1/{profile}/{coords}?annotations=duration,distance'
+        example: 'http://localhost:5000/table/v1/driving/-116.214,43.618;-116.203,43.602;-116.201,43.600'
+    notes: "Isochrones require Valhalla or computed fan-out; OSRM has no native isochrone endpoint."
+
+  - id: valhalla
+    name: "Valhalla (self/hosted) — Isochrone/Matrix"
+    category: routing
+    enabled: true
+    base_url: 'http://{your_valhalla_host}:8002'
+    docs_url: 'https://valhalla.github.io/valhalla/api/'
+    auth: { type: none }
+    endpoints:
+      - name: isochrone
+        method: POST
+        url_template: '/isochrone'
+        example: |
+          POST http://localhost:8002/isochrone
+          body: {"locations":[{"lat":43.618,"lon":-116.214}],"costing":"auto","contours":[{"time":15}]}
+      - name: matrix
+        method: POST
+        url_template: '/matrix'
+        example: |
+          POST http://localhost:8002/matrix
+          body: {"sources":[{"lat":43.618,"lon":-116.214}],"targets":[{"lat":43.602,"lon":-116.203}],"costing":"auto"}
+
+  - id: openrouteservice
+    name: "OpenRouteService — Isochrones (hosted)"
+    category: routing
+    enabled: false
+    base_url: 'https://api.openrouteservice.org'
+    docs_url: 'https://giscience.github.io/openrouteservice/api-reference/endpoints/isochrones/'
+    auth: { type: api_key, in: header, header: Authorization, scheme: "Bearer", env: ORS_API_KEY }
+    endpoints:
+      - name: isochrones
+        method: POST
+        url_template: '/v2/isochrones/{profile}'
+        example: |
+          POST https://api.openrouteservice.org/v2/isochrones/driving-car
+          header: Authorization: Bearer {KEY}
+          body: {"locations":[[-116.214,43.618]],"range":[900]}
+
+  # -----------------------------
+  # GEO / HAZARDS / ENVIRONMENT
+  # -----------------------------
+
+  - id: usgs_epqs
+    name: "USGS Elevation Point Query Service (EPQS)"
+    category: terrain
+    enabled: true
+    base_url: 'https://apps.nationalmap.gov/epqs/pqs.php'
+    docs_url: 'https://apps.nationalmap.gov/epqs/'
+    auth: { type: none }
+    endpoints:
+      - name: point
+        method: GET
+        url_template: '?x={lon}&y={lat}&units={meters|feet}&output=json'
+        example: 'https://apps.nationalmap.gov/epqs/pqs.php?x=-116.214&y=43.618&units=meters&output=json'
+
+  - id: tnm_access
+    name: "USGS The National Map — TNM Access API"
+    category: data_catalog
+    enabled: true
+    base_url: 'https://tnmaccess.nationalmap.gov/api/v1'
+    docs_url: 'https://tnmaccess.nationalmap.gov/api/v1/docs'
+    auth: { type: none }
+    endpoints:
+      - name: products_search
+        method: GET
+        url_template: '/products?datasets={dataset}&bbox={minx},{miny},{maxx},{maxy}'
+        example: 'https://tnmaccess.nationalmap.gov/api/v1/products?datasets=3DEPElevation&bbox=-116.5,43.4,-116.0,43.8'
+
+  - id: usgs_nhdplus_hr
+    name: "USGS NHDPlus High Resolution (ArcGIS REST)"
+    category: hydrography
+    enabled: true
+    base_url: 'https://hydro.nationalmap.gov/arcgis/rest/services/NHDPlus_HR/MapServer'
+    docs_url: 'https://www.usgs.gov/national-hydrography/access-national-hydrography-products'
+    auth: { type: none }
+    endpoints:
+      - name: layer_query
+        method: GET
+        url_template: '/{layer_id}/query?where=1=1&f=geojson&outFields=*'
+        example: 'https://hydro.nationalmap.gov/arcgis/rest/services/NHDPlus_HR/MapServer/4/query?where=1=1&f=geojson&outFields=*'
+
+  - id: usfws_nwi
+    name: "USFWS National Wetlands Inventory (WMS/WFS)"
+    category: wetlands
+    enabled: true
+    base_url: 'https://www.fws.gov/wetlands/arcgis/services/Wetlands/MapServer/WMSServer'
+    docs_url: 'https://www.fws.gov/program/national-wetlands-inventory/web-mapping-services'
+    auth: { type: none }
+    endpoints:
+      - name: wms_getmap
+        method: GET
+        url_template: '?service=WMS&request=GetMap&bbox={bbox}&layers=1&crs=EPSG:3857&format=image/png&width=1024&height=1024'
+        example: 'https://www.fws.gov/wetlands/arcgis/services/Wetlands/MapServer/WMSServer?service=WMS&request=GetMap&layers=1&bbox=-12948628,4844840,-12895344,4898144&crs=EPSG:3857&width=1024&height=1024&format=image/png'
+
+  - id: fema_nfhl
+    name: "FEMA National Flood Hazard Layer (ArcGIS REST/WMS)"
+    category: flood
+    enabled: true
+    base_url: 'https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer'
+    docs_url: 'https://hazards.fema.gov/femaportal/wps/portal/NFHLWMS'
+    auth: { type: none }
+    endpoints:
+      - name: flood_zones_query
+        method: GET
+        url_template: '/{layer}/query?where=1=1&geometry={bbox}&geometryType=esriGeometryEnvelope&inSR=3857&spatialRel=esriSpatialRelIntersects&outFields=*&f=geojson'
+        example: 'https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/28/query?where=1=1&geometry=-12948628,4844840,-12895344,4898144&geometryType=esriGeometryEnvelope&inSR=3857&spatialRel=esriSpatialRelIntersects&outFields=*&f=geojson'
+
+  - id: epa_aqs
+    name: "EPA Air Quality System (AQS) Data API v2"
+    category: air_quality
+    enabled: true
+    base_url: 'https://aqs.epa.gov/data/api'
+    docs_url: 'https://aqs.epa.gov/aqsweb/documents/data_api.html'
+    auth:
+      type: api_key
+      in: query
+      param: email
+      env: AQS_EMAIL
+      extra:
+        - in: query
+          param: key
+          env: AQS_KEY
+    endpoints:
+      - name: daily_by_county
+        method: GET
+        url_template: '/dailyData/byCounty?param={code}&bdate={yyyymmdd}&edate={yyyymmdd}&state={ss}&county={ccc}'
+        example: 'https://aqs.epa.gov/data/api/dailyData/byCounty?param=88101&bdate=20240101&edate=20241231&state=16&county=001&email={EMAIL}&key={KEY}'
+
+  - id: airnow
+    name: "AirNow — Observations/Forecasts"
+    category: air_quality
+    enabled: false
+    base_url: 'https://www.airnowapi.org/aq'
+    docs_url: 'https://docs.airnowapi.org/'
+    auth:
+      type: api_key
+      in: query
+      param: API_KEY
+      env: AIRNOW_API_KEY
+    endpoints:
+      - name: obs_by_latlon
+        method: GET
+        url_template: '/observation/latLong/current/?format=application/json&latitude={lat}&longitude={lon}&distance=25'
+        example: 'https://www.airnowapi.org/aq/observation/latLong/current/?format=application/json&latitude=43.618&longitude=-116.214&distance=25&API_KEY={KEY}'
+
+  - id: noaa_hms_smoke
+    name: "NOAA Hazard Mapping System — Smoke (ArcGIS)"
+    category: air_quality
+    enabled: true
+    base_url: 'https://www.arcgis.com/sharing/rest/content/items/288af70caeae48c99c2fb35b0e9746ba/data'  # smoke polygons layer item (example)
+    docs_url: 'https://www.ospo.noaa.gov/products/land/hms.html'
+    auth: { type: none }
+    endpoints:
+      - name: layer_geojson
+        method: GET
+        url_template: ''
+        example: 'https://www.arcgis.com/sharing/rest/content/items/288af70caeae48c99c2fb35b0e9746ba/data'
+
+  - id: landfire_wms_wcs
+    name: "LANDFIRE — WMS/WCS (fuels/vegetation)"
+    category: wildfire
+    enabled: true
+    base_url: 'https://landfire.cr.usgs.gov/arcgis/services'   # use product-specific paths per layer
+    docs_url: 'https://www.landfire.gov/data/lf_wcs_wms'
+    auth: { type: none }
+    endpoints:
+      - name: wms_getmap_template
+        method: GET
+        url_template: 'https://landfire.cr.usgs.gov/arcgis/services/US_200/MapServer/WMSServer?service=WMS&request=GetMap&layers=0&bbox={bbox}&crs=EPSG:3857&format=image/png&width=1024&height=1024'
+        example: 'https://landfire.cr.usgs.gov/arcgis/services/US_200/MapServer/WMSServer?service=WMS&request=GetMap&layers=0&bbox=-12948628,4844840,-12895344,4898144&crs=EPSG:3857&width=1024&height=1024&format=image/png'
+
+  - id: pad_us
+    name: "USGS PAD-US (Protected Areas)"
+    category: public_lands
+    enabled: true
+    base_url: 'https://services1.arcgis.com'   # use item-specific service URL
+    docs_url: 'https://www.usgs.gov/programs/gap-analysis-project/science/pad-us-data-download'
+    auth: { type: none }
+    endpoints:
+      - name: example_feature_service
+        method: GET
+        url_template: 'https://services1.arcgis.com/YourItem/arcgis/rest/services/PADUS2_1/FeatureServer/0/query?where=1=1&f=geojson&outFields=*'
+        example: 'Replace YourItem with PAD-US item id from USGS catalog'
+
+  - id: usgs_seismic_designmaps
+    name: "USGS Seismic Design Maps Web Services"
+    category: seismic
+    enabled: true
+    base_url: 'https://earthquake.usgs.gov/ws/designmaps'
+    docs_url: 'https://earthquake.usgs.gov/ws/designmaps/'
+    auth: { type: none }
+    endpoints:
+      - name: asce7_22
+        method: GET
+        url_template: '/asce7-22.json?latitude={lat}&longitude={lon}&riskCategory=II&siteClass={D}&title=site'
+        example: 'https://earthquake.usgs.gov/ws/designmaps/asce7-22.json?latitude=43.618&longitude=-116.214&riskCategory=II&siteClass=D&title=Boise'
+
+  - id: bts_noise
+    name: "USDOT/BTS National Transportation Noise Map (ArcGIS)"
+    category: noise
+    enabled: true
+    base_url: 'https://data-usdot.opendata.arcgis.com'
+    docs_url: 'https://www.bts.gov/geospatial/national-transportation-noise-map'
+    auth: { type: none }
+    endpoints:
+      - name: tiles_or_layer
+        method: GET
+        url_template: 'https://www.arcgis.com/sharing/rest/content/items/29d9fc21fce543c7a841664945263e00/data'
+        example: 'Download layer JSON or add as Feature/Map service item in ArcGIS clients'
+
+  # -----------------------------
+  # HOUSING / HUD / ENERGY
+  # -----------------------------
+
+  - id: hud_fmr
+    name: "HUD — Fair Market Rents API"
+    category: housing_policy
+    enabled: true
+    base_url: 'https://www.huduser.gov/hudapi/public/fmr'
+    docs_url: 'https://www.huduser.gov/portal/dataset/fmr-api.html'
+    auth:
+      type: bearer
+      in: header
+      header: Authorization
+      scheme: 'Bearer'
+      env: HUD_API_TOKEN
+    endpoints:
+      - name: fmr_by_zip
+        method: GET
+        url_template: '/fmr?year={yyyy}&zip_code={zip}'
+        example: 'https://www.huduser.gov/hudapi/public/fmr/fmr?year=2025&zip_code=83702'
+
+  - id: hud_il
+    name: "HUD — Income Limits API"
+    category: housing_policy
+    enabled: true
+    base_url: 'https://www.huduser.gov/hudapi/public/usps'
+    docs_url: 'https://www.huduser.gov/portal/dataset/fmr-api.html'
+    auth:
+      type: bearer
+      in: header
+      header: Authorization
+      scheme: 'Bearer'
+      env: HUD_API_TOKEN
+    endpoints:
+      - name: income_limits_by_geo
+        method: GET
+        url_template: '?type=il&year={yyyy}&query={state_or_county}'
+        example: 'https://www.huduser.gov/hudapi/public/usps?type=il&year=2025&query=ID,Ada'
+
+  - id: hud_chas
+    name: "HUD — CHAS API"
+    category: housing_policy
+    enabled: true
+    base_url: 'https://www.huduser.gov/hudapi/public/chas'
+    docs_url: 'https://www.huduser.gov/portal/dataset/chas-api.html'
+    auth:
+      type: bearer
+      in: header
+      header: Authorization
+      scheme: 'Bearer'
+      env: HUD_API_TOKEN
+    endpoints:
+      - name: state_summary
+        method: GET
+        url_template: '?type=1&year={range}'
+        example: 'https://www.huduser.gov/hudapi/public/chas?type=1&year=2016-2020'
+
+  - id: eia_v2
+    name: "EIA API v2"
+    category: energy
+    enabled: true
+    base_url: 'https://api.eia.gov/v2'
+    docs_url: 'https://www.eia.gov/opendata/documentation.php'
+    auth:
+      type: api_key
+      in: query
+      param: api_key
+      env: EIA_API_KEY
+    endpoints:
+      - name: retail_prices
+        method: GET
+        url_template: '/electricity/retail-sales/data/?facets[stateid][]={SS}&facets[sectorid][]=RES&frequency=monthly&start={YYYY-MM}'
+        example: 'https://api.eia.gov/v2/electricity/retail-sales/data/?api_key={KEY}&facets[stateid][]=ID&facets[sectorid][]=RES&frequency=monthly&start=2023-01'
+
+  - id: openei_urdb
+    name: "OpenEI — Utility Rate Database API"
+    category: energy
+    enabled: false
+    base_url: 'https://api.openei.org/utility_rates'
+    docs_url: 'https://openei.org/services/doc/rest/util_rates/'
+    auth:
+      type: api_key
+      in: query
+      param: api_key
+      env: OPEN_EI_API_KEY
+    endpoints:
+      - name: get_rates
+        method: GET
+        url_template: '?version=5&format=json_plain&detail=full&ratesforutility={utility_name}'
+        example: 'https://api.openei.org/utility_rates?version=5&format=json_plain&detail=full&ratesforutility=Idaho%20Power%20Co&api_key={KEY}'
+
+  # -----------------------------
+  # ENVIRONMENTAL COMPLIANCE
+  # -----------------------------
+
+  - id: epa_echo
+    name: "EPA ECHO — Facility REST Services"
+    category: compliance
+    enabled: true
+    base_url: 'https://echodata.epa.gov/echo'
+    docs_url: 'https://echo.epa.gov/tools/web-services'
+    auth: { type: none }
+    endpoints:
+      - name: facility_search_water
+        method: GET
+        url_template: '/rest/services/facilities/eff_rest_services.get_facilities?state_abbr={SS}&output=JSON'
+        example: 'https://echodata.epa.gov/echo/rest/services/facilities/eff_rest_services.get_facilities?state_abbr=ID&output=JSON'
+
+  - id: epa_frs
+    name: "EPA Facility Registry Service (FRS) API"
+    category: facilities
+    enabled: true
+    base_url: 'https://frsqueryprd-api.epa.gov'
+    docs_url: 'https://www.epa.gov/frs/frs-api'
+    auth: { type: none }
+    endpoints:
+      - name: facilities
+        method: GET
+        url_template: '/frs/api/1/Facilities?stateCode={SS}&out=JSON'
+        example: 'https://frsqueryprd-api.epa.gov/frs/api/1/Facilities?stateCode=ID&out=JSON'
+
+  # -----------------------------
+  # CLIMATE (Normals / weather histories)
+  # -----------------------------
+
+  - id: noaa_cdo_v2
+    name: "NOAA NCEI — Climate Data Online API"
+    category: climate
+    enabled: true
+    base_url: 'https://www.ncei.noaa.gov/cdo-web/api/v2'
+    docs_url: 'https://www.ncei.noaa.gov/cdo-web/webservices/getstarted'
+    auth:
+      type: token
+      in: header
+      header: token
+      env: NOAA_CDO_TOKEN
+    endpoints:
+      - name: dataset_list
+        method: GET
+        url_template: '/datasets'
+        example: 'https://www.ncei.noaa.gov/cdo-web/api/v2/datasets'
+    notes: "For bulk/time-sliced pulls, prefer Access Data Service below."
+
+  - id: noaa_access_data
+    name: "NOAA NCEI — Access Data Service (bulk/filtered)"
+    category: climate
+    enabled: true
+    base_url: 'https://www.ncei.noaa.gov/access/services/data/v1'
+    docs_url: 'https://www.ncei.noaa.gov/support/access-data-service-api-user-documentation'
+    auth: { type: none }   # public
+    endpoints:
+      - name: daily_summaries
+        method: GET
+        url_template: '?dataset=daily-summaries&stations={station_ids}&startDate={YYYY-MM-DD}&endDate={YYYY-MM-DD}&format=json'
+        example: 'https://www.ncei.noaa.gov/access/services/data/v1?dataset=daily-summaries&stations=USW00024131&startDate=2024-01-01&endDate=2024-12-31&format=json'
+
+  # -----------------------------
+  # STATE WATER (CO/UT/ID)
+  # -----------------------------
+
+  - id: co_hydrobase
+    name: "Colorado DWR — HydroBase REST"
+    category: water_rights
+    enabled: true
+    base_url: 'https://dwr.state.co.us/Rest/GET/api/v2'
+    docs_url: 'https://dwr.state.co.us/Rest/GET/help'
+    auth:
+      type: api_key_optional
+      in: query
+      param: apiKey
+      env: CO_DWR_API_KEY
+    endpoints:
+      - name: structures
+        method: GET
+        url_template: '/structures/structure/?format=json&waterDistrict={wd}&division={div}&pageSize=2000'
+        example: 'https://dwr.state.co.us/Rest/GET/api/v2/structures/structure/?format=json&division=1&pageSize=2000'
+
+  - id: utah_water_arcgis
+    name: "Utah Water Resources / Rights — ArcGIS Feature Services"
+    category: water_rights
+    enabled: true
+    base_url: 'https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services'
+    docs_url: 'https://dwre-utahdnr.opendata.arcgis.com/'
+    auth: { type: none }
+    endpoints:
+      - name: water_related_land_use
+        method: GET
+        url_template: '/WaterRelatedLandUse/FeatureServer/0/query?where=1=1&f=geojson&outFields=*'
+        example: 'https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/WaterRelatedLandUse/FeatureServer/0/query?where=1=1&f=geojson&outFields=*'
+
+  - id: idwr_arcgis
+    name: "Idaho Department of Water Resources — ArcGIS Services"
+    category: water_rights
+    enabled: true
+    base_url: 'https://gis.idwr.idaho.gov/hosting/rest/services'
+    docs_url: 'https://data-idwr.hub.arcgis.com/'
+    auth: { type: none }
+    endpoints:
+      - name: places_of_use
+        method: GET
+        url_template: '/allocation/WaterRightPous/FeatureServer/0/query?where=1=1&f=geojson&outFields=*'
+        example: 'https://gis.idwr.idaho.gov/hosting/rest/services/allocation/WaterRightPous/FeatureServer/0/query?where=1=1&f=geojson&outFields=*'
+
+  # -----------------------------
+  # OPTIONAL / LICENSED MARKET DATA
+  # -----------------------------
+
+  - id: yelp_places
+    name: "Yelp Places API (reviews/reputation) — licensed"
+    category: reviews
+    enabled: false
+    base_url: 'https://api.yelp.com/v3'
+    docs_url: 'https://docs.developer.yelp.com/docs/places-intro'
+    auth:
+      type: bearer
+      in: header
+      header: Authorization
+      scheme: 'Bearer'
+      env: YELP_API_KEY
+    endpoints:
+      - name: business_search
+        method: GET
+        url_template: '/businesses/search?latitude={lat}&longitude={lon}&categories={cats}&limit=50'
+        example: 'https://api.yelp.com/v3/businesses/search?latitude=43.618&longitude=-116.214&categories=restaurants&limit=50'
+
+  - id: google_places
+    name: "Google Places API (ratings/POIs) — licensed"
+    category: reviews
+    enabled: false
+    base_url: 'https://places.googleapis.com/v1'   # new places endpoints; legacy /maps/api/place also supported
+    docs_url: 'https://developers.google.com/maps/documentation/places/web-service/overview'
+    auth:
+      type: api_key
+      in: query
+      param: key
+      env: GOOGLE_MAPS_API_KEY
+    endpoints:
+      - name: place_details
+        method: GET
+        url_template: 'https://maps.googleapis.com/maps/api/place/details/json?place_id={place_id}&fields=name,rating,user_ratings_total'
+        example: 'https://maps.googleapis.com/maps/api/place/details/json?place_id=ChIJ…&fields=name,rating,user_ratings_total&key={KEY}'
+
+  - id: foursquare_places
+    name: "Foursquare Places API — licensed"
+    category: reviews
+    enabled: false
+    base_url: 'https://api.foursquare.com/v3'
+    docs_url: 'https://docs.foursquare.com/developer/reference/place-search'
+    auth:
+      type: api_key
+      in: header
+      header: Authorization
+      scheme: 'fsq3'
+      env: FSQ_API_KEY
+    endpoints:
+      - name: place_search
+        method: GET
+        url_template: '/places/search?ll={lat},{lon}&query={q}&limit=50'
+        example: 'https://api.foursquare.com/v3/places/search?ll=43.618,-116.214&query=coffee&limit=20'
+
+  # -----------------------------
+  # DOWNLOAD-ONLY HOUSING SERIES (use CORE-005 cache)
+  # -----------------------------
+
+  - id: zillow_research
+    name: "Zillow Research downloads (ZHVI/ZORI) — CSV"
+    category: housing_market
+    enabled: true
+    base_url: 'https://www.zillow.com/research/data/'
+    docs_url: 'https://www.zillow.com/research/data/'
+    auth: { type: none }
+    endpoints:
+      - name: zori_city_csv
+        method: GET
+        url_template: 'https://files.zillowstatic.com/research/public_csvs/zori/City_zori_uc_sfr_tier_0.33_0.67_sm_sa_month.csv'
+        example: 'https://files.zillowstatic.com/research/public_csvs/zori/City_zori_uc_sfr_tier_0.33_0.67_sm_sa_month.csv'
+
+  - id: redfin_datacenter
+    name: "Redfin Data Center (market trends) — CSV/TSV"
+    category: housing_market
+    enabled: true
+    base_url: 'https://redfin-public-data.s3-us-west-2.amazonaws.com'
+    docs_url: 'https://www.redfin.com/news/data-center/'
+    auth: { type: none }
+    endpoints:
+      - name: zip_market_tracker
+        method: GET
+        url_template: '/redfin_market_tracker/zip_code_market_tracker.tsv000.gz'
+        example: 'https://redfin-public-data.s3-us-west-2.amazonaws.com/redfin_market_tracker/zip_code_market_tracker.tsv000.gz'
+
+  - id: apartment_list
+    name: "Apartment List — Rent estimates CSV"
+    category: housing_market
+    enabled: true
+    base_url: 'https://www.apartmentlist.com/research/category/data-rent-estimates'
+    docs_url: 'https://www.apartmentlist.com/research/category/data-rent-estimates'
+    auth: { type: none }
+    endpoints:
+      - name: monthly_rent_csv
+        method: GET
+        url_template: '[manually select latest CSV link on page]'
+        example: 'https://static.apartmentlist.com/research/city_rent_estimates.csv'   # exemplar; confirm at runtime
+
+  # -----------------------------
+  # ZONING / PERMITS (framework connectors)
+  # -----------------------------
+
+  - id: socrata_soda
+    name: "Socrata SODA — city/county open data (permits/zoning)"
+    category: permits
+    enabled: true
+    base_url: 'https://{domain}/resource/{dataset_id}.json'
+    docs_url: 'https://dev.socrata.com/consumers/getting-started.html'
+    auth:
+      type: app_token_optional
+      in: header
+      header: 'X-App-Token'
+      env: SOCRATA_APP_TOKEN
+    endpoints:
+      - name: generic_query
+        method: GET
+        url_template: '?$select=*&$limit=50000&$where={predicate}'
+        example: 'https://data.denvergov.org/resource/permits.json?$limit=50000'
+
+  - id: arcgis_feature
+    name: "ArcGIS Feature Service (generic adapter)"
+    category: gis
+    enabled: true
+    base_url: 'https://{host}/arcgis/rest/services'
+    docs_url: 'https://developers.arcgis.com/rest/services-reference/enterprise/feature-service/'
+    auth: { type: none }
+    endpoints:
+      - name: query_geojson
+        method: GET
+        url_template: '/{service_path}/FeatureServer/{layer}/query?where=1=1&outFields=*&f=geojson'
+        example: 'https://maps.udot.utah.gov/arcgis01/rest/services/ROW/Water_Rights/MapServer/0/query?where=1=1&outFields=*&f=geojson'
+
+  - id: accela_civic
+    name: "Accela Civic Platform API (where available)"
+    category: permits
+    enabled: false
+    base_url: 'https://apis.accela.com/v4'
+    docs_url: 'https://developer.accela.com/docs/api_reference/'
+    auth:
+      type: oauth2
+      grant: client_credentials
+      env:
+        client_id: ACCELA_CLIENT_ID
+        client_secret: ACCELA_CLIENT_SECRET
+    endpoints:
+      - name: records_search
+        method: GET
+        url_template: '/records?module=Building&offset=0&limit=100'
+        example: 'https://apis.accela.com/v4/records?module=Building&limit=100'

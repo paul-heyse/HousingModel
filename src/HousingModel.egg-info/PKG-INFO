@@ -96,7 +96,7 @@ an error taxonomy (`classify_error`, `log_classified_error`) so downstream syste
 
 - `market_analytics` captures pre-computed market metrics (pillar scores, supply/job signals, and census aggregates) keyed by `period_month` and refreshed via the `flows.refresh_materialized_tables` Prefect flow.
 - `asset_performance` records per-asset scoring, market rollups, and rank-in-market for downstream BI.
-- Both tables are refreshed together, validated with Great Expectations suites (`market_analytics_validation`, `asset_performance_validation`), and exposed through helper views `market_supply_joined` and `asset_scoring_joined` for complex joins.
+- Both tables are refreshed together, validated via Pandera schemas (`market_analytics`, `asset_performance`), and exposed through helper views `market_supply_joined` and `asset_scoring_joined` for complex joins.
 - Schedule the refresh with the provided Prefect deployment (`materialized-analytics-refresh`) or trigger manually: `from flows import refresh_materialized_tables; refresh_materialized_tables()`.
 
 Running migrations locally with SQLite:
@@ -131,7 +131,7 @@ partitions = lake.list_partitions("income_data")
 **Features:**
 - Hive-style partitioning: `/lake/{dataset}/as_of=YYYY-MM/partitions/`
 - Schema evolution support with backward compatibility
-- Great Expectations integration for data quality validation
+- Pandera/Pydantic/Marshmallow integration for data quality validation
 - Partition-aware reading with predicate pushdown using DuckDB
 - Lineage tracking for all data lake operations
 
@@ -250,7 +250,7 @@ score_all_markets.schedule = "0 8 * * 1"   # Weekly on Monday at 8 AM
 
 ## Data Quality & Validation
 
-The platform enforces data quality through Great Expectations validation suites with automated quality gates:
+The platform enforces data quality through Pandera schemas, Pydantic DTOs, and Marshmallow serializers with automated quality gates:
 
 ```python
 from aker_core.validation import validate_data_quality
@@ -258,7 +258,7 @@ from aker_core.validation import validate_data_quality
 # Validate data in ETL flows
 validation_result = validate_data_quality(
     df=market_data,
-    suite_name="market_data_validation",
+    dataset_type="market_data",
     fail_on_error=True
 )
 ```
@@ -268,7 +268,7 @@ validation_result = validate_data_quality(
 # CI/CD quality gate validation
 python scripts/validate_quality_gate.py acs data/market_data.csv
 
-# List available validation suites
+# List available dataset schemas
 python scripts/validate_quality_gate.py --list-suites
 
 # Validation with detailed reporting

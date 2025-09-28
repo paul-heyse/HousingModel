@@ -23,11 +23,12 @@ def _sample_metrics() -> dict[str, np.ndarray]:
 
 def test_normalise_metrics_matches_direct_calls():
     metrics = _sample_metrics()
-    result = normalise_metrics(metrics)
+    normalised, bounds = normalise_metrics(metrics)
     for key, values in metrics.items():
-        expected = result[key]
-        direct = result[key]  # already robust_minmax output
-        np.testing.assert_allclose(expected, direct)
+        np.testing.assert_allclose(normalised[key], normalised[key])
+        assert key in bounds
+        lower, upper = bounds[key]
+        assert lower <= upper
 
 
 def test_pipeline_produces_expected_shapes():
@@ -36,6 +37,7 @@ def test_pipeline_produces_expected_shapes():
     for key in metrics:
         assert result.normalised[key].shape == metrics[key].shape
         assert result.pillar_0_5[key].shape == metrics[key].shape
+        assert key in result.bounds
     assert result.composite_0_5.shape == metrics["supply"].shape
     assert result.composite_0_100.shape == metrics["supply"].shape
 
@@ -43,12 +45,13 @@ def test_pipeline_produces_expected_shapes():
 def test_pipeline_consistency_with_manual_steps():
     metrics = _sample_metrics()
     result = run_scoring_pipeline(metrics)
-    manual_norm = normalise_metrics(metrics)
+    manual_norm, manual_bounds = normalise_metrics(metrics)
     manual_pillar = pillar_scores_from_normalised(manual_norm)
     manual_composite = composite_scores(manual_pillar, weights=DEFAULT_WEIGHTS)
 
     for key in metrics:
         np.testing.assert_allclose(result.normalised[key], manual_norm[key])
+        assert result.bounds[key] == manual_bounds[key]
         np.testing.assert_allclose(result.pillar_0_5[key], manual_pillar[key])
     np.testing.assert_allclose(result.composite_0_5, manual_composite)
     np.testing.assert_allclose(result.composite_0_100, manual_composite * 20.0)
@@ -56,7 +59,8 @@ def test_pipeline_consistency_with_manual_steps():
 
 def test_composite_scores_handles_custom_weights():
     metrics = _sample_metrics()
-    result = pillar_scores_from_normalised(normalise_metrics(metrics))
+    norm, _ = normalise_metrics(metrics)
+    result = pillar_scores_from_normalised(norm)
     weights = {"supply": 0.5, "jobs": 0.2, "urban": 0.2, "outdoor": 0.1}
     composite = composite_scores(result, weights=weights)
     assert np.isfinite(composite).all()

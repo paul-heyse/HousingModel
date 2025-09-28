@@ -1,0 +1,8 @@
+code,message,severity,context_label,ruleset_version,fit_score
+PRODUCT_TYPE_DISALLOWED,Product type highrise not allowed in context,error,suburban,v1,50.0
+UNIT_SIZE_UNDERSPEC,1BR size 500 < 650,warn,suburban,v1,50.0
+CEILING_BELOW_MIN,Ceiling 8.0 < 8.5,warn,suburban,v1,50.0
+WASHER_DRYER_REQUIRED,In-unit W/D required by policy,error,suburban,v1,50.0
+OK,All checks passed,info,urban,v1,100.0
+WASHER_DRYER_REQUIRED,In-unit W/D required by policy,error,urban,v1,75.0
+PARKING_SHORTFALL,Parking 0.8 < 1.0,warn,urban,v1,75.0

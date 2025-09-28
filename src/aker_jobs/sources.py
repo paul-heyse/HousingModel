@@ -319,7 +319,9 @@ def fetch_bls_employment(
                     "period": entry.get("period"),
                     "period_name": entry.get("periodName"),
                     "value": pd.to_numeric(entry.get("value"), errors="coerce"),
-                    "footnotes": [note.get("text") for note in entry.get("footnotes", []) if note.get("text")],
+                    "footnotes": [
+                        note.get("text") for note in entry.get("footnotes", []) if note.get("text")
+                    ],
                 }
             )
 

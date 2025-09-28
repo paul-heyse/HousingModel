@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_core/urban/demographics.py
+# hypothesis_version: 6.140.2
+
+[1.0, 1609.34, 111, 'analysis_points', 'area_km2', 'buffer_radius_miles', 'employment', 'employment_density', 'employment_points', 'error', 'flow', 'inflow_rate', 'net_flow', 'outflow_rate', 'total_employment', 'total_inflow', 'total_outflow']

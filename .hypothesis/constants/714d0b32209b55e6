@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_core/amenities/reporting.py
+# hypothesis_version: 6.140.2
+
+['Amenity', 'AssetId', 'AverageMonthlyRent', 'BlendedPaybackMonths', 'Capex', 'Code', 'NoiDeltaAnnual', 'OpexMonthly', 'PaybackMonths', 'RentPremiumPerUnit', 'RetentionDeltaBps', 'TotalCapex', 'TotalNoiDeltaAnnual', 'TotalOpexMonthly', 'UtilizationRate', 'build_amenity_table', 'build_summary_row']

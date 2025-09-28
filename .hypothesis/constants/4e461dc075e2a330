@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_core/integration/market_analysis.py
+# hypothesis_version: 6.140.2
+
+[1.0, 4.0, 50.0, 'jobs', 'msa_id', 'outdoor', 'rank', 'score_0_100', 'score_0_5', 'supply', 'urban']

@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_core/permits/models.py
+# hypothesis_version: 6.140.2
+
+['Actual cost of work', 'Address of applicant', 'Date permit expires', 'Original source URL', 'PermitRecord', 'Property address', 'Property valuation', 'Type of permit', 'actual_cost', 'addition', 'approved', 'cancelled', 'collection_metadata', 'commercial_new', 'completed', 'deck', 'demolition', 'denied', 'errors', 'estimated_cost', 'expired', 'fence', 'garage', 'issued', 'other', 'pending', 'pool', 'residential_new', 'success', 'total_permits', 'under_review', 'valuation']

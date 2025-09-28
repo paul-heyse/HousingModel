@@ -4,13 +4,13 @@ Tests for Aker Core Market Pillar Scoring
 Tests the pillar aggregation and scoring functionality for the Aker Property Model.
 """
 
-import pytest
-import numpy as np
-import pandas as pd
+import math
 from datetime import date, datetime
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 
-from aker_core.markets.composer import MarketPillarScores, score, _normalise_weights
+import pytest
+
+from aker_core.markets.composer import MarketPillarScores, _normalise_weights, score
 
 
 class TestMarketPillarScores:
@@ -85,9 +85,9 @@ class TestScoreFunction:
 
         result = score(session=mock_session, msa_id="MSA001")
 
-        # Verify calculation: 0.3*3.5 + 0.3*4.0 + 0.2*3.8 + 0.2*3.2 = 3.7
-        assert result.weighted_0_5 == 3.7
-        assert result.weighted_0_100 == 74.0  # 3.7 * 20
+        # Verify calculation: 0.3*3.5 + 0.3*4.0 + 0.2*3.8 + 0.2*3.2 = 3.65
+        assert math.isclose(result.weighted_0_5, 3.65)
+        assert math.isclose(result.weighted_0_100, 73.0)
 
     def test_custom_weight_composition(self):
         """Test score calculation with custom weights."""
@@ -104,9 +104,9 @@ class TestScoreFunction:
         custom_weights = {"supply": 0.4, "jobs": 0.4, "urban": 0.1, "outdoor": 0.1}
         result = score(session=mock_session, msa_id="MSA001", weights=custom_weights)
 
-        # Verify calculation: 0.4*3.5 + 0.4*4.0 + 0.1*3.8 + 0.1*3.2 = 3.74
-        assert abs(result.weighted_0_5 - 3.74) < 0.01
-        assert abs(result.weighted_0_100 - 74.8) < 0.1
+        # Verify calculation: 0.4*3.5 + 0.4*4.0 + 0.1*3.8 + 0.1*3.2 = 3.7
+        assert math.isclose(result.weighted_0_5, 3.7)
+        assert math.isclose(result.weighted_0_100, 74.0)
 
     def test_missing_pillar_data(self):
         """Test error handling for missing pillar data."""
@@ -147,11 +147,11 @@ class TestScoreFunction:
         mock_session.execute.return_value.scalars.return_value.first.return_value = mock_record
         mock_session.flush = Mock()
 
-        result = score(session=mock_session, msa_id="MSA001")
+        score(session=mock_session, msa_id="MSA001")
 
         # Verify database updates
-        assert mock_record.weighted_0_5 == 3.7
-        assert mock_record.weighted_0_100 == 74.0
+        assert math.isclose(mock_record.weighted_0_5, 3.65)
+        assert math.isclose(mock_record.weighted_0_100, 73.0)
         assert mock_record.weights == {"supply": 0.3, "jobs": 0.3, "urban": 0.2, "outdoor": 0.2}
         mock_session.flush.assert_called_once()
 

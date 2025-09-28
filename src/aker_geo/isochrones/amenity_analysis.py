@@ -58,10 +58,12 @@ class AmenityAnalyzer:
             isochrones_gdf[f"{category}_count"] = 0
 
         # Count amenities within each isochrone
-        for idx, isochrone_row in isochrones_gdf.iterrows():
-            isochrone_geom = isochrone_row.geometry
+        geometry_column = "geometry" if "geometry" in isochrones_gdf.columns else "isochrone"
 
-            if isochrone_geom.is_empty:
+        for idx, isochrone_row in isochrones_gdf.iterrows():
+            isochrone_geom = isochrone_row.get(geometry_column)
+
+            if isochrone_geom is None or isochrone_geom.is_empty:
                 continue
 
             # Find amenities within this isochrone

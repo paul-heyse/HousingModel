@@ -11,11 +11,11 @@ if "feedparser" not in sys.modules:
     sys.modules["feedparser"] = types.SimpleNamespace(parse=lambda *a, **k: {"entries": []})
 
 from aker_jobs import (
-    bea_gdp_per_capita,
     aggregate_migration_to_msa,
-    build_location_quotients_from_bls,
     awards_per_100k,
     awards_trend,
+    bea_gdp_per_capita,
+    build_location_quotients_from_bls,
     business_formation_rate,
     business_survival_trend,
     cagr,

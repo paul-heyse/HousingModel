@@ -11,7 +11,7 @@ from __future__ import annotations
 import os
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, Iterable, Literal
+from typing import Any, Dict, Iterable, List, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, SecretStr
 
@@ -81,7 +81,25 @@ class Settings(BaseSettings):
     osrm_base_url: AnyHttpUrl = Field(default="https://router.project-osrm.org/")
     census_api_key: SecretStr | None = Field(default=None)
     bls_api_key: SecretStr | None = Field(default=None)
-    great_expectations_root: str | None = Field(default=None)
+    mapbox_access_token: SecretStr | None = Field(default=None)
+    nominatim_contact_email: str | None = Field(default=None)
+    acs_default_year: int = Field(default=2024)
+    acs_default_variables: List[str] = Field(default_factory=list)
+    acs_default_geo_requests: List[Dict[str, str]] = Field(default_factory=list)
+    bfs_default_time_expr: str | None = Field(default=None)
+    bls_series_ids: List[str] = Field(default_factory=list)
+    bls_start_year: int | None = Field(default=None)
+    bls_end_year: int | None = Field(default=None)
+    qcew_area_code: str | None = Field(default=None)
+    qcew_year: int | None = Field(default=None)
+    qcew_quarter: int | None = Field(default=None)
+    lodes_state: str | None = Field(default=None)
+    lodes_segment: str | None = Field(default=None)
+    lodes_part: str | None = Field(default=None)
+    bea_dataset_name: str | None = Field(default=None)
+    bea_table_name: str | None = Field(default=None)
+    bea_geo_fips: str | None = Field(default=None)
+    bea_year: str | None = Field(default=None)
     feature_flags: FeatureFlags = Field(default_factory=FeatureFlags)
 
     _source_map: Dict[str, Source] = PrivateAttr(default_factory=dict)

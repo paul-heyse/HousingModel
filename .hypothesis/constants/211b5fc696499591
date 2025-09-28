@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_core/markets/service.py
+# hypothesis_version: 6.140.2
+
+[-1.0, 0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0, 12.0, 15.0, 18.0, 20.0, 25.0, 30.0, 35.0, 40.0, 50.0, 55.0, 60.0, 70.0, 80.0, 90.0, 100.0, 120.0, 150.0, 180.0, 300.0, 5000.0, 50000.0, 250000.0, '%Y-%m', '%Y-%m-%d', 'PillarScoreService', 'jobs', 'jobs_0_5', 'outdoor', 'outdoor_0_5', 'supply', 'supply_0_5', 'urban', 'urban_0_5']

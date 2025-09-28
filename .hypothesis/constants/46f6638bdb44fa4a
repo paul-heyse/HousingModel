@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_deal/ranking.py
+# hypothesis_version: 6.140.2
+
+[0.0, 'below min ROI', 'exceeds max payback', 'non-positive cost']

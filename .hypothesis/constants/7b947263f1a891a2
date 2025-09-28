@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_core/risk/reporting.py
+# hypothesis_version: 6.140.2
+
+['DataVintage', 'Multiplier', 'Notes', 'Peril', 'SeverityIdx', 'Source', '_', 'build_risk_table']

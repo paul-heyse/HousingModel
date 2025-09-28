@@ -16,8 +16,6 @@ import pandas as pd
 try:
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
-    import joblib
-
     PARALLEL_AVAILABLE = True
 except ImportError:
     PARALLEL_AVAILABLE = False
@@ -82,8 +80,6 @@ class SupplyPerformanceOptimizer:
             for permits, households in zip(permits_list, households_list):
                 permits_hash = self._hash_array(permits)
                 households_hash = self._hash_array(households)
-                cache_key = f"{permits_hash}_{households_hash}_{years}"
-
                 try:
                     result = self._cached_elasticity_calculation(
                         permits_hash, households_hash, years

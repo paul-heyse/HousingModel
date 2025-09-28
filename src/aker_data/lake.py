@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
@@ -10,9 +11,12 @@ import duckdb
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
-from great_expectations.core.batch import BatchRequest
-from great_expectations.core.expectation_validation_result import ExpectationSuiteValidationResult
-from great_expectations.data_context import FileDataContext
+
+try:  # pragma: no cover - defensive import for simplified environments
+    from aker_core.validation import validate_dataset
+except Exception:  # pylint: disable=broad-except
+    def validate_dataset(*args, **kwargs):  # type: ignore
+        raise RuntimeError("aker_core.validation is not available in this environment")
 
 
 class DataLake:
@@ -30,6 +34,7 @@ class DataLake:
         self.base_path = Path(base_path)
         self.base_path.mkdir(parents=True, exist_ok=True)
         self._run_context = run_context
+        self.logger = logging.getLogger(__name__)
 
     def write(
         self,
@@ -37,8 +42,8 @@ class DataLake:
         dataset: str,
         as_of: str,
         partition_by: Optional[List[str]] = None,
-        ge_context: Optional[FileDataContext] = None,
-        ge_suite: Optional[str] = None,
+        *,
+        dataset_type: Optional[str] = None,
     ) -> str:
         """Write DataFrame to partitioned Parquet format.
 
@@ -47,8 +52,7 @@ class DataLake:
             dataset: Dataset name (e.g., 'acs_income')
             as_of: Time partition (YYYY-MM format, e.g., '2025-06')
             partition_by: Additional columns to partition by
-            ge_context: Great Expectations context for validation
-            ge_suite: Expectation suite name for validation
+            dataset_type: Optional dataset type for schema validation
 
         Returns:
             Path to the written dataset partition
@@ -66,32 +70,60 @@ class DataLake:
         if existing_schema is not None:
             self._validate_schema_evolution(df, existing_schema)
 
-        # Run Great Expectations validation if configured
-        if ge_context and ge_suite:
-            self._run_ge_validation(df, ge_context, ge_suite)
+        # Run schema validation if a dataset type is provided
+        if dataset_type:
+            validation = validate_dataset(df, dataset_type)
+            if not validation.success:
+                self.logger.warning(
+                    "validation_failure",
+                    extra={
+                        "dataset": dataset,
+                        "dataset_type": dataset_type,
+                        "failures": validation.failed_expectations,
+                    },
+                )
 
         # Validate geospatial data if geometry columns exist
         if self._has_geometry_columns(df):
             try:
-                from aker_core.validation import validate_crs, validate_geometry
+                from aker_geo.validate import validate_crs, validate_geometry
 
-                # Validate geometry integrity
                 geom_validation = validate_geometry(df)
-                if not geom_validation.success:
+                if getattr(geom_validation, "invalid_geometries", 0):
                     self.logger.warning(
-                        f"Geometry validation failed for {dataset}: {geom_validation.failed_expectations}"
+                        "geometry_validation_failed",
+                        extra={
+                            "dataset": dataset,
+                            "invalid_geometries": geom_validation.invalid_geometries,
+                            "errors": geom_validation.validation_errors,
+                        },
                     )
 
-                # Validate CRS
                 crs_validation = validate_crs(df)
-                if not crs_validation["crs_compatible"]:
-                    self.logger.warning(f"CRS compatibility issues for {dataset}: {crs_validation}")
+                has_crs = bool(crs_validation.get("has_crs"))
+                is_storage_crs = bool(crs_validation.get("is_storage_crs"))
+                is_ui_crs = bool(crs_validation.get("is_ui_crs"))
+                if not has_crs or not (is_storage_crs or is_ui_crs):
+                    self.logger.warning(
+                        "crs_validation_warning",
+                        extra={
+                            "dataset": dataset,
+                            "has_crs": has_crs,
+                            "is_storage_crs": is_storage_crs,
+                            "is_ui_crs": is_ui_crs,
+                            "crs_name": crs_validation.get("crs_name"),
+                            "detected_crs": crs_validation.get("detected_crs"),
+                        },
+                    )
 
             except ImportError:
                 # Geospatial libraries not available, skip validation
                 pass
             except Exception as e:
-                self.logger.warning(f"Geospatial validation failed for {dataset}: {e}")
+                self.logger.warning(
+                    "geospatial_validation_error",
+                    extra={"dataset": dataset, "error": str(e)},
+                )
 
         # Write to Parquet with partitioning
         partition_cols = ["as_of"] + (partition_by or [])
@@ -207,27 +239,44 @@ class DataLake:
             # Validate geospatial data if geometry columns exist
             if self._has_geometry_columns(df):
                 try:
-                    from aker_core.validation import validate_crs, validate_geometry
+                    from aker_geo.validate import validate_crs, validate_geometry
 
-                    # Validate geometry integrity
                     geom_validation = validate_geometry(df)
-                    if not geom_validation.success:
+                    if getattr(geom_validation, "invalid_geometries", 0):
                         self.logger.warning(
-                            f"Geometry validation failed for {dataset}: {geom_validation.failed_expectations}"
+                            "geometry_validation_failed",
+                            extra={
+                                "dataset": dataset,
+                                "invalid_geometries": geom_validation.invalid_geometries,
+                                "errors": geom_validation.validation_errors,
+                            },
                         )
 
-                    # Validate CRS
                     crs_validation = validate_crs(df)
-                    if not crs_validation["crs_compatible"]:
+                    has_crs = bool(crs_validation.get("has_crs"))
+                    is_storage_crs = bool(crs_validation.get("is_storage_crs"))
+                    is_ui_crs = bool(crs_validation.get("is_ui_crs"))
+                    if not has_crs or not (is_storage_crs or is_ui_crs):
                         self.logger.warning(
-                            f"CRS compatibility issues for {dataset}: {crs_validation}"
+                            "crs_validation_warning",
+                            extra={
+                                "dataset": dataset,
+                                "has_crs": has_crs,
+                                "is_storage_crs": is_storage_crs,
+                                "is_ui_crs": is_ui_crs,
+                                "crs_name": crs_validation.get("crs_name"),
+                                "detected_crs": crs_validation.get("detected_crs"),
+                            },
                         )
 
                 except ImportError:
                     # Geospatial libraries not available, skip validation
                     pass
                 except Exception as e:
-                    self.logger.warning(f"Geospatial validation failed for {dataset}: {e}")
+                    self.logger.warning(
+                        "geospatial_validation_error",
+                        extra={"dataset": dataset, "error": str(e)},
+                    )
 
             # Log operation to lineage if RunContext is available
             if self._run_context and hasattr(self._run_context, "log_data_lake_operation"):
@@ -355,24 +404,3 @@ class DataLake:
             raise ValueError(f"Schema evolution error: removed fields {removed_fields}")
 
         # Schema evolution is allowed (new columns, type changes within compatibility)
-
-    def _run_ge_validation(
-        self, df: pd.DataFrame, context: FileDataContext, suite_name: str
-    ) -> ExpectationSuiteValidationResult:
-        """Run Great Expectations validation suite."""
-        # Create a temporary batch for validation
-        batch_request = BatchRequest(
-            datasource_name="pandas",
-            data_connector_name="runtime",
-            data_asset_name="temp_validation",
-            runtime_parameters={"batch_data": df},
-            batch_spec_passthrough={"reader_method": "read_csv"},
-        )
-
-        validator = context.get_validator(
-            batch_request=batch_request,
-            expectation_suite_name=suite_name,
-        )
-
-        results = validator.validate()
-        return results

@@ -7,7 +7,7 @@ from typing import Dict, Iterable, Mapping
 
 import numpy as np
 
-from aker_core.scoring import robust_minmax
+from aker_core.scoring import apply_winsor_bounds, compute_winsor_bounds
 
 DEFAULT_WEIGHTS: Dict[str, float] = {
     "supply": 0.30,
@@ -22,6 +22,7 @@ class NormalisationResult:
     """Container for normalised pillar metrics and derived scores."""
 
     normalised: Dict[str, np.ndarray]
+    bounds: Dict[str, tuple[float, float]]
     pillar_0_5: Dict[str, np.ndarray]
     composite_0_5: np.ndarray
     composite_0_100: np.ndarray
@@ -32,7 +33,7 @@ def normalise_metrics(
     *,
     p_low: float = 0.05,
     p_high: float = 0.95,
-) -> Dict[str, np.ndarray]:
+) -> tuple[Dict[str, np.ndarray], Dict[str, tuple[float, float]]]:
     """Apply :func:`robust_minmax` to each metric array.
 
     Parameters
@@ -49,10 +50,13 @@ def normalise_metrics(
     """
 
     normalised: Dict[str, np.ndarray] = {}
+    bounds: Dict[str, tuple[float, float]] = {}
     for name, values in metrics.items():
-        array = robust_minmax(values, p_low=p_low, p_high=p_high)
-        normalised[name] = array.astype(float, copy=False)
-    return normalised
+        array = np.asarray(values, dtype=float)
+        lower, upper = compute_winsor_bounds(array, p_low=p_low, p_high=p_high)
+        bounds[name] = (lower, upper)
+        normalised[name] = apply_winsor_bounds(array, lower=lower, upper=upper)
+    return normalised, bounds
 
 
 def pillar_scores_from_normalised(
@@ -97,12 +101,13 @@ def run_scoring_pipeline(
 ) -> NormalisationResult:
     """Execute normalisation → pillar scaling → composite score pipeline."""
 
-    normalised = normalise_metrics(metrics, p_low=p_low, p_high=p_high)
+    normalised, bounds = normalise_metrics(metrics, p_low=p_low, p_high=p_high)
     pillar_0_5 = pillar_scores_from_normalised(normalised)
     composite_0_5 = composite_scores(pillar_0_5, weights=weights)
     composite_0_100 = composite_0_5 * 20.0
     return NormalisationResult(
         normalised=normalised,
+        bounds=bounds,
         pillar_0_5=pillar_0_5,
         composite_0_5=composite_0_5,
         composite_0_100=composite_0_100,

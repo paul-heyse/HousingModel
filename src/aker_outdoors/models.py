@@ -23,6 +23,21 @@ class EnvironmentalDataSource(str, Enum):
     PROPRIETARY = "proprietary"
 
 
+class AmenityCategory(str, Enum):
+    """Standardized amenity categories for urban convenience analysis."""
+
+    GROCERY = "grocery"
+    PHARMACY = "pharmacy"
+    HEALTHCARE = "healthcare"
+    EDUCATION = "education"
+    TRANSIT = "transit"
+    RECREATION = "recreation"
+    SHOPPING = "shopping"
+    DINING = "dining"
+    BANKING = "banking"
+    SERVICES = "services"
+
+
 class AirQualityLevel(str, Enum):
     """Air quality levels based on PM2.5 concentrations."""
 

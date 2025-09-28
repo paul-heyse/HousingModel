@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_geo/isochrones/amenity_analysis.py
+# hypothesis_version: 6.140.2
+
+[0.05, 0.1, 0.15, 0.2, 0.25, 100, 'accessibility_score', 'amenity', 'atm', 'bank', 'banking', 'bar', 'bus_stop', 'cafe', 'category', 'chemist', 'clinic', 'college', 'convenience', 'count', 'credit_union', 'dentist', 'department_store', 'dining', 'doctor', 'drugstore', 'education', 'fast_food', 'fire_station', 'geometry', 'government', 'grocery', 'gym', 'healthcare', 'hospital', 'isochrone', 'kindergarten', 'library', 'light_rail', 'mall', 'market', 'name', 'park', 'pharmacy', 'playground', 'police', 'post_office', 'pub', 'recreation', 'restaurant', 'retail', 'school', 'services', 'shopping', 'sports_centre', 'subway', 'supermarket', 'swimming_pool', 'total_amenities', 'total_isochrones', 'train_station', 'transit', 'university', 'urgent_care']

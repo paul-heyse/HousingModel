@@ -13,7 +13,6 @@ from aker_core.permits import (
     PermitsConnector,
     PermitStatus,
     PermitType,
-    get_connector,
 )
 from aker_core.permits.models import Address
 
@@ -387,6 +386,8 @@ class TestIntegration:
     def test_connector_registry_integration(self, mock_run_context):
         """Test connector registry integration."""
         try:
+            from aker_core.permits import ConnectorRegistry, get_connector
+
             registry = ConnectorRegistry()
 
             # Test that we can get connectors
@@ -397,6 +398,10 @@ class TestIntegration:
             la_connector = get_connector("Los Angeles", "CA", mock_run_context)
             assert la_connector.city == "Los Angeles"
             assert la_connector.state == "CA"
+
+            # Registry should be able to enumerate registered connectors
+            available = {connector.city for connector in registry.connectors}
+            assert {"New York", "Los Angeles"}.issubset(available)
 
         except ImportError as e:
             pytest.skip(f"Connector integration failed: {e}")

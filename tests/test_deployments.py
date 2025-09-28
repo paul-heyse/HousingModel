@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+
 # Test that deployment configurations can be imported
 def test_deployment_imports():
     """Test that deployment configurations can be imported without errors."""
@@ -14,8 +15,12 @@ def test_deployment_imports():
         # Check that the deployment objects exist and have expected attributes
         assert hasattr(market_data_refresh, "name")
         assert hasattr(market_data_refresh, "flow")
+        assert hasattr(market_data_refresh_manual, "name")
+        assert hasattr(market_data_refresh_manual, "flow")
         assert hasattr(market_scoring, "name")
         assert hasattr(market_scoring, "flow")
+        assert hasattr(market_scoring_manual, "name")
+        assert hasattr(market_scoring_manual, "flow")
 
         print("✓ Deployment configurations imported successfully")
 
@@ -23,4 +28,3 @@ def test_deployment_imports():
         # If Prefect server is not running, this is expected
         print(f"⚠ Deployment import failed (expected if Prefect server not running): {e}")
         # This is not a test failure since it requires Prefect server
-

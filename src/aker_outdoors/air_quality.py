@@ -2,17 +2,15 @@
 
 from __future__ import annotations
 
-import logging
-from datetime import date, datetime, timedelta
-from typing import Dict, List, Optional, Tuple
+from datetime import date
+from typing import Dict, List
 
 import numpy as np
 import pandas as pd
-from shapely.geometry import Point
 
+from aker_core.connectors.base import DataConnector
 from aker_core.logging import get_logger
 
-from ..connectors.base import DataConnector
 from .models import AirQualityLevel
 
 
@@ -182,7 +180,7 @@ class AirQualityAnalyzer:
                 "data_quality_score": self._calculate_data_quality_score(valid_data)
             }
 
-            self.logger.info(f"PM2.5 variation analysis complete: {len(valid_data)} data points, {seasonal_variation".3f"} seasonal variation")
+            self.logger.info(f"PM2.5 variation analysis complete: {len(valid_data)} data points, {seasonal_variation:.3f} seasonal variation")
             return result
 
         except Exception as e:

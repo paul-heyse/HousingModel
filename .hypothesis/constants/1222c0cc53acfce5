@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_core/urban/models.py
+# hypothesis_version: 6.140.2
+
+[0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.4, 1.0, 10.0, 50.0, 100.0, 100, 'Data sources used', 'Last update date', 'MSA identifier', 'MSA name', 'State abbreviation', 'UrbanMetrics', 'banking', 'bike_15', 'census', 'connectivity', 'dining', 'education', 'grocery', 'gtfs', 'healthcare', 'local_retail', 'lodes', 'osm', 'pharmacy', 'proprietary', 'recreation', 'retail_health', 'services', 'shopping', 'transit', 'walk_15']

@@ -71,6 +71,36 @@ def robust_minmax(
     """
 
     array = _as_float_array(values)
+    finite_mask = np.isfinite(array)
+    finite_values = array[finite_mask]
+
+    if finite_values.size > 0:
+        spread = float(np.nanmax(finite_values) - np.nanmin(finite_values))
+        max_abs = float(np.nanmax(np.abs(finite_values))) if finite_values.size else 0.0
+        tolerance = max(1e-12, max_abs * 1e-12)
+        if spread <= tolerance:
+            midpoint = np.full(array.shape, 50.0)
+            return np.where(finite_mask, midpoint, np.nan)
+
+    lower, upper = compute_winsor_bounds(array, p_low=p_low, p_high=p_high)
+    result = apply_winsor_bounds(array, lower=lower, upper=upper)
+    return result
+
+
+def compute_winsor_bounds(
+    values: Iterable[float],
+    *,
+    p_low: float = 0.05,
+    p_high: float = 0.95,
+) -> tuple[float, float]:
+    """Return the winsorisation bounds for ``values``.
+
+    This helper performs the same validation as :func:`robust_minmax` but only returns
+    the computed lower/upper quantiles. Call :func:`apply_winsor_bounds` to reuse the
+    bounds across multiple normalisation passes (e.g., scenario analysis).
+    """
+
+    array = _as_float_array(values)
     if array.size == 0:
         raise RobustNormalizationError("Input array is empty")
 
@@ -82,7 +112,6 @@ def robust_minmax(
         raise RobustNormalizationError("Percentiles must satisfy 0 <= p_low < p_high <= 1")
 
     finite_values = array[finite_mask]
-
     lower = np.nanpercentile(finite_values, p_low * 100.0)
     upper = np.nanpercentile(finite_values, p_high * 100.0)
 
@@ -92,18 +121,47 @@ def robust_minmax(
     if upper < lower:
         lower, upper = upper, lower
 
+    return float(lower), float(upper)
+
+
+def apply_winsor_bounds(array: np.ndarray, *, lower: float, upper: float) -> np.ndarray:
+    """Apply precomputed winsor bounds and return the 0–100 normalised scores."""
+
+    finite_mask = np.isfinite(array)
+    finite_values = array[finite_mask]
+
+    if finite_values.size == 0:
+        return np.full(array.shape, np.nan)
+
+    spread = float(np.nanmax(finite_values) - np.nanmin(finite_values))
+    if spread <= 1e-12:
+        midpoint = np.full(array.shape, 50.0)
+        return np.where(finite_mask, midpoint, np.nan)
+
     if np.isclose(upper, lower):
-        result = np.full(array.shape, 50.0)
-        return np.where(np.isfinite(array), result, np.nan)
+        unique_values = np.unique(finite_values)
+        if unique_values.size > 1:
+            lower = float(unique_values.min())
+            upper = float(unique_values.max())
+        else:
+            midpoint = np.full(array.shape, 50.0)
+            return np.where(finite_mask, midpoint, np.nan)
 
-    clipped = np.clip(array, lower, upper)
-    normalised = (clipped - lower) / (upper - lower)
+    scale = max(abs(lower), abs(upper), 1.0)
+    clipped = np.clip(array / scale, lower / scale, upper / scale)
+    normalised = (clipped - (lower / scale)) / ((upper / scale) - (lower / scale))
     normalised *= 100.0
-
-    normalised = np.where(np.isfinite(array), normalised, np.nan)
-    # Guard numerical drift
+    normalised = np.where(finite_mask, normalised, np.nan)
     normalised = np.clip(normalised, 0.0, 100.0)
+    # Clamp tiny floating errors so scaled invariance holds under percentile collapse
+    normalised = np.where(np.isclose(normalised, 0.0, atol=1e-6), 0.0, normalised)
+    normalised = np.where(np.isclose(normalised, 100.0, atol=1e-6), 100.0, normalised)
     return normalised.astype(float, copy=False)
 
 
-__all__ = ["robust_minmax", "RobustNormalizationError"]
+__all__ = [
+    "robust_minmax",
+    "RobustNormalizationError",
+    "compute_winsor_bounds",
+    "apply_winsor_bounds",
+]

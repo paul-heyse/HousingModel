@@ -15,6 +15,9 @@ jobs:
           environment-name: ci
           cache-downloads: true
           cache-env: true
+      - name: Documentation gate
+        shell: bash -l {0}
+        run: python scripts/enforce_documentation.py
       - name: Run tests
         shell: bash -l {0}
         run: |

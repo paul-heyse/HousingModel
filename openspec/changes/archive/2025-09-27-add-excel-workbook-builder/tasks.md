@@ -1,0 +1,21 @@
+## 1. Implementation
+- [x] 1.1 Create `exports` capability with workbook builder engine
+- [x] 1.2 Implement `exports.to_excel(msa, asset, as_of) -> Path` function
+- [x] 1.3 Build Overview sheet with executive summary and key metrics
+- [x] 1.4 Create Market_Scorecard sheet with pillar scoring and benchmarks
+- [x] 1.5 Implement Asset_Fit sheet with asset evaluation and fit scoring
+- [x] 1.6 Build Deal_Archetypes sheet with deal structure analysis
+- [x] 1.7 Create Risk sheet with risk assessment and mitigation
+- [x] 1.8 Implement Ops_KPIs sheet with operational performance metrics
+- [x] 1.9 Build CO-UT-ID_Patterns sheet with state-specific operational data
+- [x] 1.10 Create Checklist sheet with due diligence status tracking
+- [x] 1.11 Implement Data_Lineage sheet with source provenance tracking
+- [x] 1.12 Build Config sheet with system configuration and metadata
+- [x] 1.13 Add database data connections for live data integration
+- [x] 1.14 Implement Excel formulas that replicate Python calculations
+- [x] 1.15 Add interactive elements (pivot tables, charts, conditional formatting)
+- [x] 1.16 Create golden master testing with sample data files
+- [x] 1.17 Write format validation tests (sheet names, headers, structure)
+- [x] 1.18 Create functional equivalence tests against Python calculations
+- [x] 1.19 Document Excel export API surface and configuration options
+- [x] 1.20 Add performance benchmarks for large dataset exports

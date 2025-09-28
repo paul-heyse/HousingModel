@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_deal/adjustments.py
+# hypothesis_version: 6.140.2
+
+[0.0, 1.0, '=', 'as_of=', 'asset_category', 'asset_id', 'coerce', 'cost', 'cost_indices', 'downtime_cost_rates', 'energy_rates', 'index_value', 'msa_id', 'multiplier', 'quoted_cost', 'rate', 'rate_per_hour', 'scope_name', 'usd_per_hour', 'usd_per_kwh', 'value', 'vendor_quotes']

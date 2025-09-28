@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_data/materialized.py
+# hypothesis_version: 6.140.2
+
+[0.0, '%Y-%m', 'asset_id', 'asset_performance', 'asset_scoring_joined', 'composite_score', 'dense', 'households', 'jobs_score', 'market_analytics', 'market_name', 'market_supply_joined', 'msa_id', 'outdoor_score', 'period_month', 'permit_per_1k', 'population', 'rank_in_market', 'records', 'refreshed_at', 'rows', 'run_id', 'score', 'supply_score', 'table', 'tech_cagr', 'trail_mi_pc', 'units', 'urban_score', 'vacancy_rate', 'validation', 'walk_15_ct', 'year_built']

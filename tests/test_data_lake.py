@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import tempfile
 from unittest.mock import MagicMock
 
@@ -44,7 +45,7 @@ class TestDataLakeBasic:
         self, temp_lake: DataLake, sample_df: pd.DataFrame
     ) -> None:
         """Test that write creates proper partitioned structure."""
-        result_path = temp_lake.write(sample_df, "test_dataset", "2025-06")
+        temp_lake.write(sample_df, "test_dataset", "2025-06")
 
         # Check that partition directory was created
         partition_path = temp_lake.base_path / "test_dataset" / "as_of=2025-06"
@@ -153,7 +154,7 @@ class TestLineageTracking:
         mock_run_context.log_data_lake_operation = MagicMock()
         temp_lake._run_context = mock_run_context
 
-        result_path = temp_lake.write(sample_df, "test_dataset", "2025-06")
+        temp_lake.write(sample_df, "test_dataset", "2025-06")
 
         # Should have logged the operation
         mock_run_context.log_data_lake_operation.assert_called_once()
@@ -263,3 +264,63 @@ class TestIntegration:
 
         assert len(june_data) == 2
         assert len(july_data) == 2
+
+
+class TestGeospatialValidation:
+    """Test geospatial validation behaviour."""
+
+    def test_write_valid_geodataframe_has_no_warnings(
+        self, temp_lake: DataLake, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        geopandas = pytest.importorskip("geopandas")
+        from shapely.geometry import Point
+
+        gdf = geopandas.GeoDataFrame(
+            {"id": [1, 2], "value": [10, 20]},
+            geometry=[Point(0, 0), Point(1, 1)],
+            crs="EPSG:4326",
+        )
+
+        caplog.set_level(logging.WARNING)
+        temp_lake.write(gdf, "geo_dataset", "2025-06")
+
+        messages = [record.message for record in caplog.records if record.name == "aker_data.lake"]
+        assert "geometry_validation_failed" not in messages
+        assert "crs_validation_warning" not in messages
+
+    def test_write_invalid_geometry_emits_warning(
+        self, temp_lake: DataLake, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        geopandas = pytest.importorskip("geopandas")
+        from shapely.geometry import Polygon
+
+        invalid_polygon = Polygon([(0, 0), (1, 1), (1, 0), (0, 1), (0, 0)])
+        gdf = geopandas.GeoDataFrame(
+            {"id": [1], "value": [42]},
+            geometry=[invalid_polygon],
+            crs="EPSG:4326",
+        )
+
+        caplog.set_level(logging.WARNING)
+        temp_lake.write(gdf, "geo_dataset_invalid", "2025-07")
+
+        messages = [record.message for record in caplog.records if record.name == "aker_data.lake"]
+        assert "geometry_validation_failed" in messages
+
+    def test_write_missing_crs_emits_warning(
+        self, temp_lake: DataLake, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        geopandas = pytest.importorskip("geopandas")
+        from shapely.geometry import Point
+
+        gdf = geopandas.GeoDataFrame(
+            {"id": [1]},
+            geometry=[Point(2, 2)],
+            crs=None,
+        )
+
+        caplog.set_level(logging.WARNING)
+        temp_lake.write(gdf, "geo_dataset_no_crs", "2025-08")
+
+        messages = [record.message for record in caplog.records if record.name == "aker_data.lake"]
+        assert "crs_validation_warning" in messages

@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_core/risk/calibration.py
+# hypothesis_version: 6.140.2
+
+[0.0, 0.0016, 0.0018, 0.002, 0.0022, 0.9, 1.1, 2.0, 2.5, 3.0, 3.5, 4.0, 100.0, 110.0, 120.0, 130.0, 150.0, 200.0, 'NOAA Storm Events', 'PerilCalibration', 'RiskCalibrator', 'USFS WUI Composite', 'adverse', 'basis', 'beneficial', 'calibration_note', 'hail', 'linear_v1', 'peril', 'policy_risk', 'snow_load', 'total_insured_value', 'water_stress', 'wildfire']

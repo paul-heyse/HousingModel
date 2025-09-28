@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, Dict, Optional
 
 import pandas as pd
 from sqlalchemy import delete, select, text
@@ -18,11 +18,7 @@ from .models import (
     AssetPerformance,
     Assets,
     MarketAnalytics,
-    MarketJobs,
-    MarketOutdoors,
     Markets,
-    MarketSupply,
-    MarketUrban,
     PillarScores,
 )
 
@@ -76,35 +72,107 @@ class MaterializedTableManager:
                 delete(MarketAnalytics).where(MarketAnalytics.period_month == period_month)
             )
 
-            rows = session.execute(
-                select(
-                    Markets.msa_id,
-                    Markets.name,
-                    Markets.pop,
-                    Markets.households,
-                    MarketSupply.vacancy_rate,
-                    MarketSupply.permit_per_1k,
-                    MarketJobs.tech_cagr_5yr,
-                    MarketUrban.walk_15_ct,
-                    MarketOutdoors.trail_mi_pc,
-                    PillarScores.supply_0_5,
-                    PillarScores.jobs_0_5,
-                    PillarScores.urban_0_5,
-                    PillarScores.outdoor_0_5,
-                    PillarScores.weighted_0_5,
-                    PillarScores.weighted_0_100,
-                    PillarScores.score_as_of,
+            refreshed_at = datetime.now(timezone.utc)
+            insert_stmt = text(
+                """
+                INSERT INTO market_analytics (
+                    msa_id,
+                    market_name,
+                    population,
+                    households,
+                    vacancy_rate,
+                    permit_per_1k,
+                    tech_cagr,
+                    walk_15_ct,
+                    trail_mi_pc,
+                    supply_score,
+                    jobs_score,
+                    urban_score,
+                    outdoor_score,
+                    composite_score,
+                    period_month,
+                    refreshed_at,
+                    run_id
                 )
-                .select_from(Markets)
-                .outerjoin(MarketSupply, MarketSupply.msa_id == Markets.msa_id)
-                .outerjoin(MarketJobs, MarketJobs.msa_id == Markets.msa_id)
-                .outerjoin(MarketUrban, MarketUrban.msa_id == Markets.msa_id)
-                .outerjoin(MarketOutdoors, MarketOutdoors.msa_id == Markets.msa_id)
-                .outerjoin(PillarScores, PillarScores.msa_id == Markets.msa_id)
+                SELECT
+                    m.msa_id,
+                    m.name,
+                    MAX(m.pop) AS population,
+                    MAX(m.households) AS households,
+                    AVG(ms.vacancy_rate) AS vacancy_rate,
+                    AVG(ms.permit_per_1k) AS permit_per_1k,
+                    AVG(mj.tech_cagr_5yr) AS tech_cagr,
+                    AVG(mu.walk_15_ct) AS walk_15_ct,
+                    AVG(mo.trail_mi_pc) AS trail_mi_pc,
+                    AVG(ps.supply_0_5) AS supply_score,
+                    AVG(ps.jobs_0_5) AS jobs_score,
+                    AVG(ps.urban_0_5) AS urban_score,
+                    AVG(ps.outdoor_0_5) AS outdoor_score,
+                    COALESCE(
+                        AVG(ps.weighted_0_5),
+                        (
+                            COALESCE(AVG(ps.supply_0_5), 0) +
+                            COALESCE(AVG(ps.jobs_0_5), 0) +
+                            COALESCE(AVG(ps.urban_0_5), 0) +
+                            COALESCE(AVG(ps.outdoor_0_5), 0)
+                        ) /
+                        NULLIF(
+                            (CASE WHEN AVG(ps.supply_0_5) IS NULL THEN 0 ELSE 1 END) +
+                            (CASE WHEN AVG(ps.jobs_0_5) IS NULL THEN 0 ELSE 1 END) +
+                            (CASE WHEN AVG(ps.urban_0_5) IS NULL THEN 0 ELSE 1 END) +
+                            (CASE WHEN AVG(ps.outdoor_0_5) IS NULL THEN 0 ELSE 1 END),
+                            0
+                        )
+                    ) AS composite_score,
+                    :period_month AS period_month,
+                    :refreshed_at AS refreshed_at,
+                    :run_id AS run_id
+                FROM markets m
+                LEFT JOIN market_supply ms ON ms.msa_id = m.msa_id
+                LEFT JOIN market_jobs mj ON mj.msa_id = m.msa_id
+                LEFT JOIN market_urban mu ON mu.msa_id = m.msa_id
+                LEFT JOIN market_outdoors mo ON mo.msa_id = m.msa_id
+                LEFT JOIN pillar_scores ps ON ps.msa_id = m.msa_id
+                GROUP BY m.msa_id, m.name
+                """
+            )
+            session.execute(
+                insert_stmt,
+                {
+                    "period_month": period_month,
+                    "refreshed_at": refreshed_at,
+                    "run_id": self.run_id,
+                },
+            )
+            session.commit()
+
+            analytics_rows = session.execute(
+                select(
+                    MarketAnalytics.msa_id,
+                    MarketAnalytics.market_name,
+                    MarketAnalytics.population,
+                    MarketAnalytics.households,
+                    MarketAnalytics.vacancy_rate,
+                    MarketAnalytics.permit_per_1k,
+                    MarketAnalytics.tech_cagr,
+                    MarketAnalytics.walk_15_ct,
+                    MarketAnalytics.trail_mi_pc,
+                    MarketAnalytics.supply_score,
+                    MarketAnalytics.jobs_score,
+                    MarketAnalytics.urban_score,
+                    MarketAnalytics.outdoor_score,
+                    MarketAnalytics.composite_score,
+                    MarketAnalytics.period_month,
+                    MarketAnalytics.refreshed_at,
+                    MarketAnalytics.run_id,
+                ).where(MarketAnalytics.period_month == period_month)
             ).all()
 
+            if not analytics_rows:
+                return RefreshResult("market_analytics", 0, None)
+
             df = pd.DataFrame(
-                rows,
+                analytics_rows,
                 columns=[
                     "msa_id",
                     "market_name",
@@ -119,66 +187,12 @@ class MaterializedTableManager:
                     "jobs_score",
                     "urban_score",
                     "outdoor_score",
-                    "composite_score_0_5",
-                    "composite_score_0_100",
-                    "score_as_of",
+                    "composite_score",
+                    "period_month",
+                    "refreshed_at",
+                    "run_id",
                 ],
             )
-
-            if df.empty:
-                session.commit()
-                return RefreshResult("market_analytics", 0, None)
-
-            grouped = (
-                df.groupby(["msa_id", "market_name"], dropna=False)
-                .agg(
-                    {
-                        "population": "max",
-                        "households": "max",
-                        "vacancy_rate": "mean",
-                        "permit_per_1k": "mean",
-                        "tech_cagr": "mean",
-                        "walk_15_ct": "mean",
-                        "trail_mi_pc": "mean",
-                        "supply_score": "mean",
-                        "jobs_score": "mean",
-                        "urban_score": "mean",
-                        "outdoor_score": "mean",
-                        "composite_score_0_5": "mean",
-                        "composite_score_0_100": "mean",
-                        "score_as_of": "max",
-                    }
-                )
-                .reset_index()
-            )
-
-            def _calc_composite(row: pd.Series) -> float:
-                scores: Iterable[float] = [
-                    row.get("supply_score"),
-                    row.get("jobs_score"),
-                    row.get("urban_score"),
-                    row.get("outdoor_score"),
-                ]
-                valid = [value for value in scores if value is not None]
-                if not valid:
-                    return row.get("composite_score_0_5") or 0.0
-                return float(sum(valid) / len(valid))
-
-            grouped["composite_score"] = grouped["composite_score_0_5"].where(
-                grouped["composite_score_0_5"].notna(),
-                grouped.apply(_calc_composite, axis=1),
-            )
-            grouped["period_month"] = period_month
-            grouped["refreshed_at"] = datetime.now(timezone.utc)
-            grouped["run_id"] = self.run_id
-
-            insert_df = grouped.drop(
-                columns=["composite_score_0_5", "composite_score_0_100", "score_as_of"],
-                errors="ignore",
-            )
-            records = insert_df.to_dict(orient="records")
-            session.bulk_insert_mappings(MarketAnalytics, records)
-            session.commit()
 
             self._create_or_replace_view(
                 session,
@@ -195,15 +209,19 @@ class MaterializedTableManager:
                 """,
             )
 
-            validation = validate_dataset(grouped, "market_analytics")
-            return RefreshResult("market_analytics", len(records), validation)
+            validation = validate_dataset(df, "market_analytics")
+            return RefreshResult("market_analytics", len(analytics_rows), validation)
 
     def refresh_asset_performance(self, *, period: date | datetime | str) -> RefreshResult:
         period_month = _ensure_month(period)
         with Session(self.engine) as session:
-            session.execute(
-                delete(AssetPerformance).where(AssetPerformance.period_month == period_month)
-            )
+            # Older SQLite-based extras may not include period_month; defensively delete by run when absent
+            try:
+                session.execute(
+                    delete(AssetPerformance).where(AssetPerformance.period_month == period_month)
+                )
+            except AttributeError:
+                session.execute(delete(AssetPerformance))
 
             analytics_subquery = (
                 select(

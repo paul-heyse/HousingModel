@@ -6,15 +6,14 @@ Provides production monitoring, profiling, and alerting for supply calculators.
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Any, Callable
-import time
-import logging
 import functools
-from datetime import datetime, timedelta
+import logging
+import time
 from collections import defaultdict, deque
+from datetime import datetime, timedelta
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import numpy as np
-import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -175,18 +174,29 @@ class SupplyPerformanceMonitor:
         alerts = []
 
         if avg_execution_time > self.alert_thresholds["calculation_time_ms"]:
-            alerts.append({
-                "type": "performance",
-                "message": f"Average execution time {avg_execution_time".1f"}ms exceeds threshold {self.alert_thresholds['calculation_time_ms']}ms",
-                "severity": "warning"
-            })
+            threshold = self.alert_thresholds["calculation_time_ms"]
+            alerts.append(
+                {
+                    "type": "performance",
+                    "message": (
+                        f"Average execution time {avg_execution_time:.1f}ms exceeds "
+                        f"threshold {threshold}ms"
+                    ),
+                    "severity": "warning",
+                }
+            )
 
         if error_rate > self.alert_thresholds["error_rate"]:
-            alerts.append({
-                "type": "error_rate",
-                "message": f"Error rate {error_rate".2%"} exceeds threshold {self.alert_thresholds['error_rate']".2%"}",
-                "severity": "error"
-            })
+            threshold = self.alert_thresholds["error_rate"]
+            alerts.append(
+                {
+                    "type": "error_rate",
+                    "message": (
+                        f"Error rate {error_rate:.2%} exceeds threshold {threshold:.2%}"
+                    ),
+                    "severity": "error",
+                }
+            )
 
         return {
             "time_window_minutes": time_window_minutes,
@@ -243,25 +253,33 @@ class SupplyPerformanceMonitor:
 
         # Check calculation time
         if summary["avg_execution_time_ms"] > self.alert_thresholds["calculation_time_ms"]:
-            alerts.append({
-                "type": "performance_degradation",
-                "message": f"Average calculation time {summary['avg_execution_time_ms']".1f"}ms exceeds threshold",
-                "severity": "warning",
-                "metric": "execution_time",
-                "current_value": summary["avg_execution_time_ms"],
-                "threshold": self.alert_thresholds["calculation_time_ms"]
-            })
+            alerts.append(
+                {
+                    "type": "performance_degradation",
+                    "message": (
+                        f"Average calculation time {summary['avg_execution_time_ms']:.1f}ms exceeds threshold"
+                    ),
+                    "severity": "warning",
+                    "metric": "execution_time",
+                    "current_value": summary["avg_execution_time_ms"],
+                    "threshold": self.alert_thresholds["calculation_time_ms"],
+                }
+            )
 
         # Check error rate
         if summary["error_rate"] > self.alert_thresholds["error_rate"]:
-            alerts.append({
-                "type": "high_error_rate",
-                "message": f"Error rate {summary['error_rate']".2%"} exceeds threshold",
-                "severity": "error",
-                "metric": "error_rate",
-                "current_value": summary["error_rate"],
-                "threshold": self.alert_thresholds["error_rate"]
-            })
+            alerts.append(
+                {
+                    "type": "high_error_rate",
+                    "message": (
+                        f"Error rate {summary['error_rate']:.2%} exceeds threshold"
+                    ),
+                    "severity": "error",
+                    "metric": "error_rate",
+                    "current_value": summary["error_rate"],
+                    "threshold": self.alert_thresholds["error_rate"],
+                }
+            )
 
         # Check if we have too few recent calculations
         if summary["total_calculations"] == 0:

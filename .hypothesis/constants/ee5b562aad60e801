@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_core/permits/registry.py
+# hypothesis_version: 6.140.2
+
+['CA', 'Los Angeles', 'NY', 'New York', '|']

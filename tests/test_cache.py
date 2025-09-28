@@ -28,7 +28,7 @@ def mock_run_context() -> RunContext:
     return MagicMock(spec=RunContext)
 
 
-class TestOfflineMode:
+class TestCacheOfflineMode:
     """Test offline mode detection."""
 
     def test_is_offline_mode_true_when_no_network(self) -> None:
@@ -246,7 +246,7 @@ class TestOfflineMode:
                     temp_cache, "_build_response_from_cache", return_value=MagicMock()
                 ):
                     response = temp_cache.fetch("https://example.com/api", offline_mode=True)
-                    # Should return cached response in offline mode
+                    assert response is not None
 
     def test_fetch_in_offline_mode_no_cache(self) -> None:
         """Test fetching in offline mode when no cache is available."""

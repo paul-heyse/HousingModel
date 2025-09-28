@@ -5,6 +5,7 @@ import tempfile
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from aker_core.cache import Cache
 

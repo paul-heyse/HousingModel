@@ -2,19 +2,13 @@
 
 from __future__ import annotations
 
-import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 import geopandas as gpd
 import networkx as nx
 import numpy as np
-import pandas as pd
-from shapely.geometry import Point, Polygon
 
 from aker_core.logging import get_logger
-
-from ..isochrones import compute_isochrones
-from .models import NoiseLevel
 
 
 class ConnectivityAnalyzer:
@@ -46,7 +40,7 @@ class ConnectivityAnalyzer:
 
         density = intersections / area_km2
 
-        self.logger.info(f"Intersection density: {density".2f"} intersections/km²")
+        self.logger.info(f"Intersection density: {density:.2f} intersections/km²")
         return density
 
     def bikeway_connectivity(
@@ -88,7 +82,7 @@ class ConnectivityAnalyzer:
             # Convert to 0-100 scale
             connectivity_index = min(connectivity_ratio * 100, 100)
 
-            self.logger.info(f"Bikeway connectivity index: {connectivity_index".1f"}")
+            self.logger.info(f"Bikeway connectivity index: {connectivity_index:.1f}")
             return connectivity_index
 
         except Exception as e:
@@ -168,7 +162,7 @@ class ConnectivityAnalyzer:
                 connectivity_score / 100 * 0.2               # Connectivity component
             ) * 100
 
-            self.logger.info(f"Walkability index: {walkability".1f"}")
+            self.logger.info(f"Walkability index: {walkability:.1f}")
             return walkability
 
         except Exception as e:

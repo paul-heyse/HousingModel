@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_core/etl/amenities.py
+# hypothesis_version: 6.140.2
+
+[0.0, 0.58, 0.6, 0.63, 0.7, 135.0, 155.0, 190.0, 520.0, 740.0, 1400.0, 2000.0, '%Y-%m', '_', 'amenity_code', 'amenity_name', 'as_of', 'avg_monthly_rent', 'capex', 'cowork_lounge', 'data_vintage', 'default_capex', 'fitness_center', 'mean', 'monthly_revenue', 'opex_monthly', 'pet_spa', 'retention_delta_bps', 'source', 'utilization', 'utilization_rate', 'vendor']

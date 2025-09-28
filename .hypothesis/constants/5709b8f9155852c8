@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_core/amenities/engine.py
+# hypothesis_version: 6.140.2
+
+[0.0, 1e-06, 0.6, 12.0, 2000.0, 10000.0, 120, 'AmenityEngine', '_', 'default_capex', 'evaluate', 'manual', 'membership_value', 'monthly_premium', 'retention_value', 'source', 'units']

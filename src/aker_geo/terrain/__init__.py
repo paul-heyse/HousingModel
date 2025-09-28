@@ -1,4 +1,9 @@
-"""Terrain analysis toolkit built on top of geospatial primitives."""
+"""Terrain and overlay utilities backing the geospatial spec.
+
+These helpers implement slope, buffer, and overlay calculations described
+in `openspec/specs/geo/spec.md`, returning objects that integrate cleanly
+with market supply scoring and state pack adjustments.
+"""
 
 from .analysis import SlopeAnalysisError, SlopeStatistics, slope_percent
 from .buffers import assess_parcel_buffers, waterway

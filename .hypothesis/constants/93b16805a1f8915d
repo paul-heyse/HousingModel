@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_jobs/__init__.py
+# hypothesis_version: 6.140.2
+
+['DataIntegrationError', 'ExpansionEvent', 'awards_per_100k', 'awards_trend', 'bea_gdp_per_capita', 'cagr', 'classify_expansion', 'compute_trend', 'fetch_bea_data', 'fetch_bls_employment', 'fetch_census_bfs', 'fetch_irs_migration', 'fetch_nsf_awards', 'location_quotient', 'migration_net_25_44', 'patents_per_100k', 'summarise_expansions']

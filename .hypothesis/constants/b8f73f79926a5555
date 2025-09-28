@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_core/asset/engine.py
+# hypothesis_version: 6.140.2
+
+[0.0, 100.0, 'CEILING_BELOW_MIN', 'PARKING_SHORTFALL', 'UNIT_SIZE_UNDERSPEC', 'VINTAGE_BELOW_MIN', 'ceiling_min_ft', 'code', 'data', 'error', 'info', 'label', 'message', 'min', 'min_ceiling_ft', 'min_unit_size', 'min_year_built', 'parking_ratio', 'product_type', 'require_wd_in_unit', 'severity', 'size', 'size_sqft', 'type', 'unit_mix', 'unit_type', 'v1', 'warn', 'wd_in_unit', 'year_built']

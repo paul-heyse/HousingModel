@@ -190,7 +190,7 @@ class TestLeaseupCalculator:
         result = leaseup_tom(lease_data)
 
         # Should be median of all days_on_market values
-        expected = 17.0  # Median of [12, 14, 15, 16, 17, 18, 19, 20, 22, 25]
+        expected = 17.5  # Median of [12, 14, 15, 16, 17, 18, 19, 20, 22, 25]
         assert result == expected
 
     def test_leaseup_with_filters(self):

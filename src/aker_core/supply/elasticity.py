@@ -90,6 +90,8 @@ def inverse_elasticity_score(elasticity_value: float) -> float:
     Returns:
         Supply constraint score (0-100) where higher = more constrained
     """
-    # This would be used in the actual scoring pipeline
-    # For now, just return the elasticity value as a placeholder
-    return min(max(elasticity_value, 0), 100)
+    # Elasticity is a proxy for how responsive supply is. More responsive markets
+    # (higher elasticity) should be treated as *less* constrained, so we invert the
+    # value on a 0–100 scale. The simple 100 - x transform keeps the relationship
+    # monotonic while clamping the allowable range.
+    return float(max(0.0, min(100.0, 100.0 - elasticity_value)))

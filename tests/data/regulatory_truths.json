@@ -1,0 +1,44 @@
+{
+  "portland_or": {
+    "input": {
+      "text": "Inclusionary zoning applies to projects >20 units. Design review is mandatory downtown. HEIGHT_LIMIT=75 PARKING_MIN=0.75"
+    },
+    "expected": {
+      "iz_flag": true,
+      "review_flag": true,
+      "height_idx": 62,
+      "parking_idx": 19,
+      "water_moratorium_flag": false
+    }
+  },
+  "denver_co": {
+    "input": {
+      "text": "Affordable housing set-aside enforced citywide. HEIGHT_LIMIT=150 PARKING_MIN=1.25. Water availability moratorium lifted in 2012.",
+      "tables": {
+        "design_review": true
+      }
+    },
+    "expected": {
+      "iz_flag": true,
+      "review_flag": true,
+      "height_idx": 25,
+      "parking_idx": 31,
+      "water_moratorium_flag": false
+    }
+  },
+  "phoenix_az": {
+    "input": {
+      "text": "No inclusionary zoning mandates. HEIGHT_LIMIT=200 PARKING_MIN=2.5. Water moratorium in effect for new subdivisions.",
+      "tables": {
+        "water_moratorium": true
+      }
+    },
+    "expected": {
+      "iz_flag": false,
+      "review_flag": false,
+      "height_idx": 0,
+      "parking_idx": 62,
+      "water_moratorium_flag": true
+    }
+  }
+}

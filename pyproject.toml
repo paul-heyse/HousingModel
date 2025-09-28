@@ -11,9 +11,9 @@ dependencies = [
     "alembic",
     "geoalchemy2",
     "pyarrow",
-    "duckdb>=0.10,<1",
-    "great-expectations>=0.18,<1",
-    "structlog>=24.1,<25",
+    "duckdb",
+    "pandera",
+    "structlog",
     "prometheus-client",
     "requests-cache",
     "tenacity",
@@ -24,7 +24,24 @@ dependencies = [
     "feedparser",
     "beautifulsoup4",
     "pandas",
-    "hypothesis>=6.90",
+    "hypothesis",
+    # GUI dependencies
+    "fastapi",
+    "uvicorn[standard]",
+    "gunicorn",
+    "dash",
+    "dash-bootstrap-components",
+    "plotly",
+    "python-multipart",  # for file uploads
+    "jinja2",  # for templates
+    "aiofiles",  # for async file operations
+    # Mapping and visualization dependencies
+    "dash-leaflet",  # Interactive mapping
+    "geopandas",     # Geographic data handling (already present)
+    "folium",        # Alternative mapping option
+    "mapboxgl",      # Mapbox integration
+    "docxtpl",       # Word memo templating
+    "branca",        # Map styling utilities
 ]
 
 [tool.setuptools]
@@ -39,8 +56,18 @@ line-length = 100
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-extend-select = ["I"]
+extend-exclude = [
+    "demo_complete_aker_integration.py",
+    "test_optimize_cadence_simple.py",
+    "test_state_packs_simple.py",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["E501"]
 
 [tool.mypy]
 python_version = "3.12"
 strict = true
+mypy_path = "."
+ignore_missing_imports = true

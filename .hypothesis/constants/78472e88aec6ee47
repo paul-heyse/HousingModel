@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_core/risk/types.py
+# hypothesis_version: 6.140.2
+
+['RiskEntry', 'data_vintage', 'deductible', 'multiplier', 'notes', 'peril', 'severity_idx', 'source', 'subject_id', 'subject_type']

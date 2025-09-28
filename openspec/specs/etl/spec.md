@@ -191,3 +191,88 @@ The system MUST provide monitoring and alerting for data collection health.
 - **THEN** tracks precision and recall metrics for NER
 - **AND** identifies patterns in extraction errors
 - **AND** provides actionable insights for improving accuracy
+
+### Requirement: Amenity Benchmark ETL Pipelines
+The ETL platform SHALL ingest and refresh amenity benchmark datasets (capex, opex, utilization, membership uptake, vendor pricing) that power the amenity ROI engine, producing normalized tables keyed to amenity codes and asset contexts.
+
+#### Scenario: Vendor Cost & Utilization Benchmarks
+- **GIVEN** partner/vendor APIs or CSV extracts providing amenity installation costs, operating expenses, and utilization rates (e.g., cowork lounges, pet spas, smart access)
+- **WHEN** `etl.amenities.load_vendor_benchmarks` runs on the scheduled cadence
+- **THEN** the pipeline SHALL normalize values to standard units (cost per door, opex per unit per month, utilization %), attach data vintages, and persist outputs with lineage entries tied to the active run
+
+#### Scenario: Membership Revenue Data
+- **GIVEN** membership or subscription data feeds (cowork passes, fitness memberships, parking subscriptions)
+- **WHEN** `etl.amenities.load_membership_revenue` executes
+- **THEN** the ETL SHALL aggregate monthly revenue per amenity, map to assets/MSAs, and expose distributions for the ROI engine with documented refresh cadence (e.g., monthly)
+
+#### Scenario: Resident Sentiment & Retention Metrics
+- **WHEN** `etl.amenities.load_retention_signals` ingests data from CRM/renewal systems or surveys
+- **THEN** the pipeline SHALL compute retention deltas attributable to specific amenities, store confidence intervals, and surface these metrics to the evaluation engine
+
+#### Scenario: Data Quality & Monitoring
+- **WHEN** amenity ETL flows run
+- **THEN** Great Expectations suites SHALL validate schema/ranges (non-negative costs, utilization within 0–1), anomalies SHALL trigger metrics/alerts, and parquet extracts SHALL be versioned by amenity code and `as_of` partition
+
+#### Scenario: Downstream Access
+- **WHEN** the amenity ROI engine requests benchmark inputs
+- **THEN** the ETL outputs SHALL be available through `aker_data.amenities` data access helpers, supporting both batch computation and interactive what-if analysis
+
+### Requirement: Data Source Integration Roadmap
+The ETL layer SHALL incorporate the catalogued external data sources defined in `sources.yml` so each existing module (market scoring, jobs, supply, risk, amenities, asset fit) runs against authoritative data with documented cadence, lineage, and validation.
+
+#### Scenario: Demographics, Labor & Macro Feeds
+- **GIVEN** the feeds `census_acs`, `bls_timeseries`, `bls_qcew`, `bea_regional`, `census_bfs`, and `lehd_lodes`
+- **WHEN** ETL pipelines execute `etl.demographics.load_acs`, `etl.jobs.load_bls_timeseries`, `etl.jobs.load_qcew`, `etl.macro.load_bea_income`, `etl.business.load_bfs`, and `etl.jobs.load_lodes`
+- **THEN** data SHALL be extracted to parquet partitions keyed by `as_of`, joined to MSAs/counties, validated with Great Expectations suites (coverage, numeric ranges), and surfaced through `aker_data` accessors feeding the jobs/market scoring modules (`aker_jobs`, `aker_core/markets`)
+- **AND** lineage SHALL record source URLs, vintages, and run IDs; cache TTL follows `defaults.cache_ttl` from `sources.yml`
+
+#### Scenario: Housing Supply & Permits Feeds
+- **GIVEN** feeds `census_bps`, `socrata_soda`, `arcgis_feature`, and `accela_civic`
+- **WHEN** supply ETL pipelines (`etl.supply.load_bps`, `etl.permits.load_socrata`, `etl.permits.load_arcgis`, `etl.permits.load_accela`) run on their specified cadences
+- **THEN** building permits, zoning, and entitlement datasets SHALL populate `market_supply`, `permit_events`, and related materialized views with spatial joins to assets/sites, providing inputs for the supply calculators and asset fit engine
+- **AND** validations SHALL ensure permit counts are non-negative, geometries adhere to EPSG:4326, and offline cache snapshots respect the “CORE-005” TTL
+
+#### Scenario: Housing Market Pricing Feeds
+- **GIVEN** download-only feeds `zillow_research`, `redfin_datacenter`, and `apartment_list`
+- **WHEN** ETL jobs fetch the latest rent/price CSV/TSV assets
+- **THEN** datasets SHALL be normalized to monthly market panels (MSA/ZIP), stored in the data lake, and exposed to the market scoring composer and underwriting reports for comps, with ingestion metadata captured in lineage
+
+#### Scenario: Hazard & Risk Feeds
+- **GIVEN** hazard feeds listed in `sources.yml` (e.g., `noaa_hms_smoke`, `fema_nfhl`, `epa_airnow`, plus state wildfire layers via `arcgis_feature`)
+- **WHEN** `etl.hazards` pipelines refresh these datasets
+- **THEN** severity indices SHALL be computed and written to hazard staging tables powering the Risk Engine, with validation checks for severity bounds and spatial coverage; cache policies shall match provider guidance (hourly/daily refresh per source)
+
+#### Scenario: Amenity, Mobility & Resident Experience Feeds
+- **GIVEN** POI/review feeds (`osm_overpass`, `google_places`, `foursquare_places`) and mobility/amenity data (`openmobilitydata`, `gbfs`, etc.)
+- **WHEN** ETL connectors fetch and normalize these feeds
+- **THEN** amenity accessibility, urban convenience, and amenity ROI benchmarks SHALL ingest ratings/utilization to support `aker_core/urban` and the Amenity Engine, with licensing flags respected (disabled feeds require explicit configuration before execution)
+- **AND** reports SHALL surface data provenance (source ID, timestamp) for any amenity-derived scores
+
+#### Scenario: Run-Level Validation & Scheduling
+- **WHEN** integration flows run on their respective cadences (monthly, quarterly, daily)
+- **THEN** Prefect orchestration SHALL respect the timeouts/rate limits defined in `sources.yml`, ensure retries/backoff policies align with defaults, and emit Prometheus metrics for success/failure counts so the platform maintains deterministic, auditable pipelines
+
+### Requirement: Boundary & Geocoding Source Integration
+The ETL stack SHALL ingest and refresh the boundary and geocoding datasets listed in `sources_supplement.yml` (Census TIGERweb, OpenAddresses, Microsoft Global Building Footprints, Census Geocoder, OSM Nominatim, Mapbox Geocoding) so existing modules have authoritative geography coverage and address resolution.
+
+#### Scenario: TIGERweb Boundary Extraction
+- **WHEN** ETL pipelines call `etl.boundaries.load_tigerweb` for states, counties, tracts, places, and ZCTA layers
+- **THEN** ArcGIS FeatureService responses SHALL be normalized into partitioned parquet tables (state/tract/place, CRS=EPSG:4326), validated for geometry integrity, and registered in the data lake for use by urban, risk, and reporting modules
+- **AND** lineage SHALL capture the TIGERweb endpoint, vintage, and run ID
+
+#### Scenario: Microsoft Building Footprints & OpenAddresses Ingestion
+- **WHEN** the boundary ETL flow processes Microsoft Global Building Footprints and OpenAddresses batches
+- **THEN** building polygons and address points SHALL be downloaded, deduplicated, and stored with geospatial validations (topology, CRS), providing optional inputs to amenity ROI, asset fit, and mapping exports
+
+#### Scenario: Census Geocoder Integration
+- **WHEN** geocoding services request standardized addresses
+- **THEN** the Census Geocoder connector SHALL expose single-line, batch, and reverse geocoding utilities with caching and rate-limit handling, logging benchmark/vintage metadata so results are auditable
+
+#### Scenario: Mapbox & OSM Nominatim (Optional Licensed Feeds)
+- **WHEN** Mapbox or OSM Nominatim connectors are enabled
+- **THEN** the ETL layer SHALL inject API tokens/user-agent requirements, respect usage policies, and cache results via the shared geocoding store to reduce provider load while providing fallbacks for amenity ROI and urban analytics
+
+#### Scenario: Prefect Orchestration & Quality Gates
+- **WHEN** boundary/geocoder flows run on their defined cadences (quarterly/annual for boundaries, on-demand for geocoding)
+- **THEN** Prefect flows SHALL respect endpoints’ timeout/rate limits, record metrics, and trigger Great Expectations/pandera validations (boundary coverage, CRS, null rates) before downstream modules consume the data
+

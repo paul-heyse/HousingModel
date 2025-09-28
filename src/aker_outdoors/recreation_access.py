@@ -2,19 +2,12 @@
 
 from __future__ import annotations
 
-import logging
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import geopandas as gpd
-import numpy as np
-import pandas as pd
-from shapely.geometry import Point, Polygon
-from shapely.ops import unary_union
+from shapely.geometry import Point
 
 from aker_core.logging import get_logger
-
-from ..connectors.base import DataConnector
-from .models import AmenityCategory
 
 
 class RecreationAnalyzer:
@@ -331,7 +324,7 @@ class RecreationAnalyzer:
             # Calculate per capita
             trail_per_capita = total_trail_length_miles / population if population > 0 else 0
 
-            self.logger.info(f"Trail miles per capita: {trail_per_capita".3f"}")
+            self.logger.info(f"Trail miles per capita: {trail_per_capita:.3f}")
             return trail_per_capita
 
         except Exception as e:

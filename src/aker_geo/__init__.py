@@ -1,5 +1,7 @@
 """Geospatial utilities for coordinate reference system transformations and spatial data validation."""
 
+import geopandas as gpd
+
 from .crs import to_storage, to_ui
 from .isochrones import compute_isochrones, count_amenities_in_isochrones
 from .terrain import (

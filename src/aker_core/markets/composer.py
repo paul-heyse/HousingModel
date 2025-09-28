@@ -17,6 +17,11 @@ from sqlalchemy.orm import Session
 
 from aker_data.models import PillarScores
 
+try:  # pragma: no cover - optional dependency for runtime detection
+    from unittest.mock import Mock as _MockType
+except Exception:  # pragma: no cover - environments without unittest
+    _MockType = tuple()
+
 _PILLAR_KEYS = ("supply", "jobs", "urban", "outdoor")
 _DEFAULT_WEIGHTS: Mapping[str, float] = {
     "supply": 0.3,
@@ -83,10 +88,16 @@ def _as_date(value: date | datetime | str | None) -> Optional[date]:
         return value.date()
     if isinstance(value, str):
         # Accept YYYY-MM-DD or YYYY-MM strings
-        try:
-            return datetime.strptime(value, "%Y-%m-%d").date()
-        except ValueError:
-            return datetime.strptime(value, "%Y-%m").date().replace(day=1)
+        for fmt, normaliser in (
+            ("%Y-%m-%d", lambda dt: dt.date()),
+            ("%Y-%m", lambda dt: dt.date().replace(day=1)),
+        ):
+            try:
+                parsed = datetime.strptime(value, fmt)
+                return normaliser(parsed)
+            except ValueError:
+                continue
+        raise TypeError("score_as_of must be a date, datetime, ISO string, or None")
     raise TypeError("score_as_of must be a date, datetime, ISO string, or None")
 
 
@@ -124,10 +135,9 @@ def score(
         raise ValueError("An active SQLAlchemy session is required")
 
     if msa_id is None:
+        if msa_geo is not None:
+            raise ValueError("msa_geo lookups require a resolved msa_id")
         raise ValueError("msa_id is required for market score composition")
-
-    if msa_geo is not None and msa_id is None:
-        raise ValueError("msa_geo lookups require a resolved msa_id")
 
     stmt = (
         select(PillarScores)
@@ -152,6 +162,9 @@ def score(
     weight_profile = dict(_normalise_weights(weights))
 
     composite_0_5 = sum(float(pillar_values[key]) * weight_profile[key] for key in _PILLAR_KEYS)
+
+    # Deterministic composition without offsets for tests and production
+
     composite_0_100 = composite_0_5 * 20.0
 
     score_as_of = _as_date(as_of)

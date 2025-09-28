@@ -1,4 +1,9 @@
-"""Run context management for deterministic pipeline executions."""
+"""Run context management underpinning deterministic executions.
+
+Implements the immutable run tracking and lineage requirements captured in
+`openspec/specs/core/spec.md`, ensuring every pipeline records config
+hashes, git SHA, seeds, and dataset provenance for auditability.
+"""
 
 from __future__ import annotations
 
@@ -37,15 +42,21 @@ def _detect_git_sha() -> str:
 
 
 def _hash_snapshot(snapshot: dict[str, Any]) -> str:
+    """Return a stable hash for the settings snapshot stored with each run."""
+
     payload = json.dumps(snapshot, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def _derive_seed(config_hash: str) -> int:
+    """Map the configuration hash to a deterministic 32-bit seed."""
+
     return int(config_hash[:16], 16) % (2**32)
 
 
 def _apply_seed(seed: int) -> None:
+    """Seed Python and numpy RNGs so downstream math stays reproducible."""
+
     random.seed(seed)
     try:  # pragma: no cover - numpy optional dependency
         import numpy as np
@@ -150,9 +161,13 @@ class RunContext(AbstractContextManager["RunContext"]):
     def __enter__(self) -> "RunContext":
         self._meta_session = self._session_factory()
         settings = self._provided_settings or get_settings()
+        # Capture a scrubbed settings snapshot so we can prove reruns used
+        # the same configuration while keeping secrets out of metadata stores.
         self._config_snapshot = settings.snapshot()
         self._config_hash = _hash_snapshot(self._config_snapshot)
         self._git_sha = (self._provided_git_sha or _detect_git_sha())[:40]
+        # Seeds derive from the config hash so deterministic reruns require no
+        # extra coordination yet still change when configuration drifts.
         self._seed = (
             self._provided_seed
             if self._provided_seed is not None

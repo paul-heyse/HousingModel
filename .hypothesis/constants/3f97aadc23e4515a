@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_data/models.py
+# hypothesis_version: 6.140.2
+
+[120, 128, 4326, 'CASCADE', 'MULTIPOLYGON', 'POINT', 'SET NULL', 'asset_performance', 'assets', 'assets.asset_id', 'completed', 'lineage', 'market_analytics', 'market_jobs', 'market_outdoors', 'market_supply', 'market_urban', 'markets', 'markets.msa_id', 'peril', 'pillar_scores', 'risk_profile', 'runs', 'runs.run_id', 'subject_id', 'subject_type']

@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_core/markets/composer.py
+# hypothesis_version: 6.140.2
+
+[0.0, 0.04, 0.05, 0.2, 0.3, 20.0, '%Y-%m', '%Y-%m-%d', 'MarketPillarScores', 'jobs', 'jobs_0_5', 'msa_id', 'outdoor', 'outdoor_0_5', 'run_id', 'score', 'score_as_of', 'score_many', 'supply', 'supply_0_5', 'urban', 'urban_0_5', 'weighted_0_100', 'weighted_0_5']

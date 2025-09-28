@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_core/config.py
+# hypothesis_version: 6.140.2
+
+[2024, '"', '#', "'", '.env', '=', 'AKER_', 'ETL_OSRM', '__', '_env_file_override', '_source_map', 'default', 'development', 'dotenv', 'env', 'env_file', 'env_prefix', 'feature_flags', 'ignore', 'json', 'utf-8']

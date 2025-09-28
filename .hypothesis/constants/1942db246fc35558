@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_core/asset/integration.py
+# hypothesis_version: 6.140.2
+
+['ceiling_min_ft', 'label', 'min_ceiling_ft', 'min_unit_size', 'min_year_built', 'parking_ratio', 'product_type', 'require_wd_in_unit', 'rows', 'unit_mix', 'wd_in_unit', 'year_built']

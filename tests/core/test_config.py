@@ -135,16 +135,15 @@ def test_sources_snapshot(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
 
     settings = Settings(_env_file=env_file)
 
-    assert settings.sources == {
-        "environment": "default",
-        "postgis_dsn": "env",
-        "prefect_api_url": "dotenv",
-        "osrm_base_url": "default",
-        "census_api_key": "default",
-        "bls_api_key": "default",
-        "great_expectations_root": "default",
-        "feature_flags": "default",
-    }
+    sources = settings.sources
+
+    assert sources["environment"] == "default"
+    assert sources["postgis_dsn"] == "env"
+    assert sources["prefect_api_url"] == "dotenv"
+    assert sources["osrm_base_url"] == "default"
+    assert sources["census_api_key"] == "default"
+    assert sources["bls_api_key"] == "default"
+    assert sources["feature_flags"] == "default"
 
 
 def test_optional_fields_default_safely(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -156,4 +155,3 @@ def test_optional_fields_default_safely(monkeypatch: pytest.MonkeyPatch) -> None
     assert str(settings.osrm_base_url) == "https://router.project-osrm.org/"
     assert settings.census_api_key is None
     assert settings.bls_api_key is None
-    assert settings.great_expectations_root is None

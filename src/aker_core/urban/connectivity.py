@@ -31,6 +31,10 @@ class ConnectivityAnalyzer:
         if area_km2 <= 0:
             raise ValueError("Area must be positive")
 
+        for node, data in graph.nodes(data=True):
+            if "x" not in data or "y" not in data:
+                raise ValueError("Street network nodes must include 'x' and 'y' coordinates")
+
         # Count intersections (nodes with degree > 2)
         intersections = sum(1 for node, degree in graph.degree() if degree > 2)
 

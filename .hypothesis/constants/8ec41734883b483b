@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_deal/__init__.py
+# hypothesis_version: 6.140.2
+
+['RankConfig', 'RankedScope', 'ScopeTemplate', 'rank_scopes']

@@ -7,20 +7,19 @@ for the Aker Property Model.
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Any, Union
-from datetime import date, datetime
 import logging
 from dataclasses import dataclass
+from datetime import date, datetime
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
+from ..markets import score
+
 # Import all pillar calculators
 from ..supply import (
-    elasticity, vacancy, leaseup_tom,
-    inverse_elasticity_score, inverse_vacancy_score, inverse_leaseup_score,
-    calculate_supply_metrics, get_supply_scores_for_scoring
+    get_supply_scores_for_scoring,
 )
-from ..markets import score, MarketPillarScores
 
 logger = logging.getLogger(__name__)
 

@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_data/lake.py
+# hypothesis_version: 6.140.2
+
+[' AND ', '**/*.parquet', '-', '.parquet', '/', '/lake', '1=1', '=', 'LINESTRING', 'MULTI', 'POINT', 'POLYGON', 'as_of', 'columns', 'crs_compatible', 'data.parquet', 'dataset', 'dataset_type', 'failures', 'filters', 'geometry', 'object', 'partition_by', 'read', 'row_count', 'snappy', 'validation_failure', 'write']

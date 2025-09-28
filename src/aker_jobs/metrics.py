@@ -189,10 +189,10 @@ def aggregate_migration_to_msa(
     for column in value_columns:
         aggregated[column] = pd.to_numeric(aggregated[column], errors="coerce")
 
-    grouped = aggregated.groupby(crosswalk_msa_column, dropna=False)[list(value_columns)].sum(
-        min_count=1
-    )
-    return grouped.reset_index().rename(columns={crosswalk_msa_column: "msa_id"})
+    grouped = aggregated.groupby(crosswalk_msa_column, dropna=False)
+    summed = grouped[list(value_columns)].sum(min_count=1)
+
+    return summed.reset_index().rename(columns={crosswalk_msa_column: "msa_id"})
 
 
 def classify_expansion(raw_event: Mapping[str, str | int | float | None]) -> ExpansionEvent:
@@ -255,7 +255,9 @@ def _latest_bls_value(series: pd.DataFrame, series_id: str) -> float:
             month = int(period[1:])
         return (int(row.get("year", 0)), month)
 
-    ordered = subset.assign(_sort=subset.apply(_period_key, axis=1)).sort_values("_sort", ascending=False)
+    ordered = subset.assign(_sort=subset.apply(_period_key, axis=1)).sort_values(
+        "_sort", ascending=False
+    )
     latest_row = ordered.iloc[0]
     value = latest_row.get("value")
     if pd.isna(value):
@@ -369,21 +371,26 @@ def business_formation_rate(
     if (population <= 0).any():
         raise ValueError("Population must be positive")
 
-    rate = formations / population
+    total_formations = float(formations.sum())
+    total_population = float(population.sum())
+    if total_population <= 0:
+        raise ValueError("Population must be positive")
+
+    rate = total_formations / total_population
     if per_100k:
         rate *= 100_000.0
 
+    startup_density = float("nan")
     if existing_businesses_column and existing_businesses_column in bfs.columns:
         existing = bfs[existing_businesses_column].astype(float)
-        with np.errstate(divide="ignore", invalid="ignore"):
-            density = np.where(existing > 0, formations / existing, np.nan)
-    else:
-        density = np.full_like(rate, np.nan)
+        total_existing = float(existing.sum())
+        if total_existing > 0:
+            startup_density = total_formations / total_existing
 
     return pd.Series(
         {
-            "formation_rate": float(rate.sum()),
-            "startup_density": float(np.nanmean(density)),
+            "formation_rate": float(rate),
+            "startup_density": startup_density,
         }
     )
 

@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_core/asset/cli.py
+# hypothesis_version: 6.140.2
+
+['--export', '--out', '.summary.json', '__main__', 'asset_json', 'context_json', 'csv', 'fit_score', 'json', 'r', 'utf-8']

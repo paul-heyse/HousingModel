@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_core/database/amenity.py
+# hypothesis_version: 6.140.2
+
+['amenity_name', 'assumptions', 'avg_monthly_rent', 'calculation_method', 'capex', 'data_vintage', 'noi_delta_annual', 'opex_monthly', 'payback_months', 'retention_delta_bps', 'run_id', 'utilization_rate']

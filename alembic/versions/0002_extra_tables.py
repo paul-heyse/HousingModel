@@ -72,8 +72,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_table("ops_model")
-    op.drop_table("risk_profile")
-    op.drop_table("amenity_program")
-    op.drop_table("deal_archetype")
-    op.drop_table("asset_fit")
+    op.execute(sa.text("DROP TABLE IF EXISTS ops_model"))
+    op.execute(sa.text("DROP TABLE IF EXISTS risk_profile"))
+    op.execute(sa.text("DROP TABLE IF EXISTS amenity_program"))
+    op.execute(sa.text("DROP TABLE IF EXISTS deal_archetype"))
+    op.execute(sa.text("DROP TABLE IF EXISTS asset_fit"))

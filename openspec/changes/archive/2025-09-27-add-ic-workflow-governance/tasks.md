@@ -1,0 +1,15 @@
+## 1. Implementation
+- [x] 1.1 Create `governance` capability with IC workflow engine
+- [x] 1.2 Implement `ic.advance(deal_id, gate, artifacts=[...])` function
+- [x] 1.3 Define deal state machine with Screen→IOI→LOI→IC1→IC2→Close gates
+- [x] 1.4 Create artifact checklist system with mandatory requirements per gate
+- [x] 1.5 Implement sign-off and approval workflows with audit trails
+- [x] 1.6 Add database schema for deal states, gate artifacts, and approvals
+- [x] 1.7 Create IC composition and quorum management system
+- [x] 1.8 Implement governance dashboard for deal progression tracking
+- [x] 1.9 Add voting mechanisms for IC approvals and rejections
+- [x] 1.10 Create notification system for gate transitions and bottlenecks
+- [x] 1.11 Write validation tests for gate order enforcement
+- [x] 1.12 Create integration tests with existing deal and portfolio management
+- [x] 1.13 Document governance API surface and workflow configuration
+- [x] 1.14 Add performance benchmarks for workflow processing

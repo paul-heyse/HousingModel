@@ -2,18 +2,12 @@
 
 from __future__ import annotations
 
-import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional
 
 import geopandas as gpd
-import numpy as np
-import pandas as pd
-from shapely.geometry import Point, Polygon
-from shapely.ops import unary_union
 
 from aker_core.logging import get_logger
 
-from ..connectors.base import DataConnector
 from .models import NoiseLevel
 
 

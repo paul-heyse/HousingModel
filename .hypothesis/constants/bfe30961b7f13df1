@@ -1,0 +1,4 @@
+# file: /home/paul/Downloads/HousingModel/src/aker_core/urban/connectivity.py
+# hypothesis_version: 6.140.2
+
+[0.0, 0.2, 0.4, 1.0, 100, 111, 'average_clustering', 'average_degree', 'bicycle', 'cycleway', 'edge_count', 'highway', 'intersection_density', 'lane', 'network_density', 'node_count', 'shared', 'track', 'x', 'y', 'yes']
